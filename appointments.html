@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المواعيد - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header flex-between">
+      <div>
+        <h1>📅 جدول المواعيد</h1>
+        <p>تنظيم ومتابعة حجوزاتك الطبية</p>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('addApptModal')">+ إضافة موعد</button>
+    </div>
+
+    <!-- View Toggle + Filters -->
+    <div class="card mb-16" style="padding:14px 16px;">
+      <div class="flex-between flex-wrap" style="gap:10px;">
+        <div class="tabs" style="margin:0;">
+          <button class="tab-btn active" onclick="setView('day',this)">يومي</button>
+          <button class="tab-btn" onclick="setView('week',this)">أسبوعي</button>
+          <button class="tab-btn" onclick="setView('all',this)">الكل</button>
+        </div>
+        <div class="flex gap-10 flex-wrap">
+          <input type="date" id="filterDate" class="form-control" style="width:180px;" onchange="renderAppointments()">
+          <select class="form-control" id="filterStatus" style="width:140px;" onchange="renderAppointments()">
+            <option value="">جميع الحالات</option>
+            <option value="pending">معلق</option>
+            <option value="confirmed">مؤكد</option>
+            <option value="completed">مكتمل</option>
+            <option value="cancelled">ملغي</option>
+          </select>
+          <div class="search-bar" style="width:220px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="searchAppt" placeholder="بحث باسم المريض..." oninput="renderAppointments()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Date Navigation -->
+    <div class="card mb-16" style="padding:12px 16px;" id="dateNavCard">
+      <div class="flex-between">
+        <button class="btn btn-ghost btn-sm" onclick="navigateDate(-1)">‹ السابق</button>
+        <div class="text-center">
+          <div class="font-bold" id="displayedDate"></div>
+          <span class="badge badge-success mt-4" id="todayBadge">اليوم</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="navigateDate(1)">التالي ›</button>
+      </div>
+    </div>
+
+    <!-- Appointments List -->
+    <div id="appointmentsList"></div>
+
+  </main>
+</div>
+
+<!-- Add Appointment Modal -->
+<div class="modal-overlay" id="addApptModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">📅 إضافة موعد جديد</span>
+      <button class="modal-close" onclick="closeModal('addApptModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">المريض <span>*</span></label>
+      <select class="form-control" id="apptPatient">
+        <option value="">اختر مريضاً...</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">التاريخ <span>*</span></label>
+        <input type="date" class="form-control" id="apptDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الوقت <span>*</span></label>
+        <input type="time" class="form-control" id="apptTime">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">نوع الزيارة</label>
+        <select class="form-control" id="apptType">
+          <option value="كشف">كشف</option>
+          <option value="متابعة">متابعة</option>
+          <option value="استشارة">استشارة</option>
+          <option value="إجراء">إجراء طبي</option>
+          <option value="أخرى">أخرى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المدة (دقيقة)</label>
+        <select class="form-control" id="apptDuration">
+          <option value="15">15 دقيقة</option>
+          <option value="30" selected>30 دقيقة</option>
+          <option value="45">45 دقيقة</option>
+          <option value="60">ساعة</option>
+          <option value="90">ساعة ونصف</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">الحالة</label>
+      <select class="form-control" id="apptStatus">
+        <option value="pending">معلق</option>
+        <option value="confirmed">مؤكد</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <textarea class="form-control" id="apptNotes" rows="2" placeholder="ملاحظات إضافية..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveAppointment()">حفظ الموعد</button>
+      <button class="btn btn-outline" onclick="closeModal('addApptModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editApptModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">✏ تعديل الموعد</span>
+      <button class="modal-close" onclick="closeModal('editApptModal')">✕</button>
+    </div>
+    <input type="hidden" id="editApptId">
+    <div class="form-group">
+      <label class="form-label">المريض</label>
+      <select class="form-control" id="editApptPatient"></select>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">التاريخ</label>
+        <input type="date" class="form-control" id="editApptDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الوقت</label>
+        <input type="time" class="form-control" id="editApptTime">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">نوع الزيارة</label>
+        <select class="form-control" id="editApptType">
+          <option value="كشف">كشف</option>
+          <option value="متابعة">متابعة</option>
+          <option value="استشارة">استشارة</option>
+          <option value="إجراء">إجراء طبي</option>
+          <option value="أخرى">أخرى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">الحالة</label>
+        <select class="form-control" id="editApptStatus">
+          <option value="pending">معلق</option>
+          <option value="confirmed">مؤكد</option>
+          <option value="completed">مكتمل</option>
+          <option value="cancelled">ملغي</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <textarea class="form-control" id="editApptNotes" rows="2"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="updateAppointment()">حفظ التعديلات</button>
+      <button class="btn btn-danger" onclick="deleteAppointment()">حذف الموعد</button>
+      <button class="btn btn-outline" onclick="closeModal('editApptModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('appointments.html');
+  if (!user) location.href = 'login.html';
+
+  let currentView = 'day';
+  let currentDate = Utils.todayStr();
+
+  // Set default date
+  document.getElementById('filterDate').value = currentDate;
+  document.getElementById('apptDate').value = currentDate;
+
+  function setView(view, btn) {
+    currentView = view;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('dateNavCard').style.display = (view === 'all') ? 'none' : '';
+    renderAppointments();
+  }
+
+  function navigateDate(dir) {
+    const d = new Date(currentDate);
+    if (currentView === 'week') d.setDate(d.getDate() + (dir * 7));
+    else d.setDate(d.getDate() + dir);
+    currentDate = d.toISOString().split('T')[0];
+    document.getElementById('filterDate').value = currentDate;
+    renderDisplayedDate();
+    renderAppointments();
+  }
+
+  function renderDisplayedDate() {
+    const d = new Date(currentDate);
+    document.getElementById('displayedDate').textContent = d.toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    const isToday = currentDate === Utils.todayStr();
+    document.getElementById('todayBadge').style.display = isToday ? '' : 'none';
+  }
+  renderDisplayedDate();
+
+  // Populate patient selects
+  function populatePatientSelects() {
+    const patients = Patients.getAll(user.id);
+    const opts = patients.map(p => `<option value="${p.id}">${Utils.escapeHtml(p.name)} - ${p.phone}</option>`).join('');
+    document.getElementById('apptPatient').innerHTML = '<option value="">اختر مريضاً...</option>' + opts;
+    document.getElementById('editApptPatient').innerHTML = opts;
+  }
+  populatePatientSelects();
+
+  const statusMap = {
+    confirmed: ['مؤكد','badge-success'],
+    pending: ['معلق','badge-warning'],
+    completed: ['مكتمل','badge-navy'],
+    cancelled: ['ملغي','badge-danger']
+  };
+
+  function renderAppointments() {
+    let appts = Appointments.getAll(user.id);
+    const filterDate = document.getElementById('filterDate').value;
+    const filterStatus = document.getElementById('filterStatus').value;
+    const search = document.getElementById('searchAppt').value.toLowerCase();
+
+    if (currentView === 'day') {
+      const d = filterDate || currentDate;
+      appts = appts.filter(a => a.date === d);
+    } else if (currentView === 'week') {
+      const start = new Date(filterDate || currentDate);
+      const end = new Date(start); end.setDate(end.getDate() + 7);
+      appts = appts.filter(a => { const d = new Date(a.date); return d >= start && d <= end; });
+    }
+
+    if (filterStatus) appts = appts.filter(a => a.status === filterStatus);
+
+    if (search) {
+      const patients = DB.get('patients', []);
+      appts = appts.filter(a => {
+        const p = patients.find(p => p.id === a.patientId);
+        return p && p.name.toLowerCase().includes(search);
+      });
+    }
+
+    appts.sort((a, b) => a.time.localeCompare(b.time));
+    const patients = DB.get('patients', []);
+    const el = document.getElementById('appointmentsList');
+
+    if (appts.length === 0) {
+      el.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">📅</div><h3>لا توجد مواعيد</h3><p>لم يتم تسجيل أي مواعيد للفترة المحددة</p><button class="btn btn-primary mt-12" onclick="openModal('addApptModal')">+ إضافة موعد</button></div></div>`;
+      return;
+    }
+
+    el.innerHTML = appts.map(a => {
+      const patient = patients.find(p => p.id === a.patientId);
+      const [label, cls] = statusMap[a.status] || ['؟','badge-gray'];
+      return `<div class="appt-card" onclick="editAppt(${a.id})" style="cursor:pointer;">
+        <div class="appt-time" style="min-width:70px;">
+          <div class="hour" style="font-size:0.95rem;">${Utils.formatTime(a.time)}</div>
+          <div class="period" style="font-size:0.7rem;">${Utils.formatDateShort(a.date)}</div>
+        </div>
+        <div style="width:3px;background:${a.status==='confirmed'?'var(--accent-green)':a.status==='pending'?'var(--warning)':a.status==='cancelled'?'var(--danger)':'var(--navy)'};border-radius:2px;align-self:stretch;"></div>
+        <div class="appt-info">
+          <div class="appt-name">${Utils.escapeHtml(patient ? patient.name : 'مريض غير معروف')}</div>
+          <div class="appt-meta">
+            <span>📋 ${a.type || 'كشف'}</span>
+            <span>⏱ ${a.duration || 30} دقيقة</span>
+            ${patient ? `<span>📞 ${patient.phone}</span>` : ''}
+          </div>
+          ${a.notes ? `<div class="text-muted text-xs mt-4">${Utils.escapeHtml(a.notes)}</div>` : ''}
+        </div>
+        <div class="flex gap-8" style="flex-direction:column;align-items:flex-end;">
+          <span class="badge ${cls}">${label}</span>
+          <div class="flex gap-6">
+            ${a.status !== 'completed' ? `<button class="btn btn-success btn-sm" onclick="event.stopPropagation();quickComplete(${a.id})">✓ إتمام</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function editAppt(id) {
+    const a = Appointments.get(id);
+    if (!a) return;
+    document.getElementById('editApptId').value = id;
+    document.getElementById('editApptDate').value = a.date;
+    document.getElementById('editApptTime').value = a.time;
+    document.getElementById('editApptType').value = a.type || 'كشف';
+    document.getElementById('editApptStatus').value = a.status;
+    document.getElementById('editApptNotes').value = a.notes || '';
+    // Set patient select
+    const sel = document.getElementById('editApptPatient');
+    for (let opt of sel.options) { if (parseInt(opt.value) === a.patientId) { opt.selected = true; break; } }
+    openModal('editApptModal');
+  }
+
+  function saveAppointment() {
+    const patientId = parseInt(document.getElementById('apptPatient').value);
+    const date = document.getElementById('apptDate').value;
+    const time = document.getElementById('apptTime').value;
+    if (!patientId || !date || !time) { showToast('يرجى تعبئة الحقول المطلوبة', 'error'); return; }
+    Appointments.add({
+      patientId, date, time,
+      type: document.getElementById('apptType').value,
+      duration: parseInt(document.getElementById('apptDuration').value),
+      status: document.getElementById('apptStatus').value,
+      notes: document.getElementById('apptNotes').value,
+      doctorId: user.id, clinicId: user.clinicId || 1
+    });
+    closeModal('addApptModal');
+    renderAppointments();
+    showToast('تم إضافة الموعد بنجاح');
+  }
+
+  function updateAppointment() {
+    const id = parseInt(document.getElementById('editApptId').value);
+    Appointments.update(id, {
+      patientId: parseInt(document.getElementById('editApptPatient').value),
+      date: document.getElementById('editApptDate').value,
+      time: document.getElementById('editApptTime').value,
+      type: document.getElementById('editApptType').value,
+      status: document.getElementById('editApptStatus').value,
+      notes: document.getElementById('editApptNotes').value
+    });
+    closeModal('editApptModal');
+    renderAppointments();
+    showToast('تم تحديث الموعد');
+  }
+
+  function deleteAppointment() {
+    const id = parseInt(document.getElementById('editApptId').value);
+    if (!confirm('هل تريد حذف هذا الموعد؟')) return;
+    Appointments.delete(id);
+    closeModal('editApptModal');
+    renderAppointments();
+    showToast('تم حذف الموعد', 'warning');
+  }
+
+  function quickComplete(id) {
+    Appointments.update(id, { status: 'completed' });
+    renderAppointments();
+    showToast('تم تحديد الموعد كمكتمل');
+  }
+
+  renderAppointments();
+</script>
+</body>
+</html>

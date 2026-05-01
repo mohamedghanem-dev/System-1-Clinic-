@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الجلسات - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header flex-between">
+      <div>
+        <h1>⚕ الجلسات الطبية</h1>
+        <p>متابعة وتسجيل جلسات العلاج والكشف</p>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('addSessionModal')">+ جلسة جديدة</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid mb-16" id="sessionStats"></div>
+
+    <!-- Filters -->
+    <div class="card mb-16" style="padding:14px 16px;">
+      <div class="flex gap-10 flex-wrap">
+        <div class="search-bar" style="flex:1;min-width:200px;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="sessionSearch" placeholder="بحث باسم المريض أو التشخيص..." oninput="renderSessions()">
+        </div>
+        <select class="form-control" style="width:140px;" id="filterSessionStatus" onchange="renderSessions()">
+          <option value="">جميع الحالات</option>
+          <option value="completed">مكتملة</option>
+          <option value="ongoing">جارية</option>
+          <option value="cancelled">ملغية</option>
+        </select>
+        <select class="form-control" style="width:140px;" id="filterPaid" onchange="renderSessions()">
+          <option value="">كل المدفوعات</option>
+          <option value="paid">مدفوع</option>
+          <option value="unpaid">غير مدفوع</option>
+        </select>
+        <input type="date" class="form-control" style="width:170px;" id="filterSessionDate" onchange="renderSessions()">
+      </div>
+    </div>
+
+    <!-- Sessions List -->
+    <div id="sessionsList"></div>
+  </main>
+</div>
+
+<!-- Add Session Modal -->
+<div class="modal-overlay" id="addSessionModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <span class="modal-title">⚕ إضافة جلسة جديدة</span>
+      <button class="modal-close" onclick="closeModal('addSessionModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">المريض <span>*</span></label>
+      <select class="form-control" id="sPatient"><option value="">اختر مريضاً...</option></select>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">تاريخ الجلسة <span>*</span></label>
+        <input type="date" class="form-control" id="sDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">حالة الجلسة</label>
+        <select class="form-control" id="sStatus">
+          <option value="completed">مكتملة</option>
+          <option value="ongoing">جارية</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">التشخيص</label>
+      <input type="text" class="form-control" id="sDiagnosis" placeholder="التشخيص الطبي...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">الوصفة الطبية</label>
+      <textarea class="form-control" id="sPrescription" rows="2" placeholder="الأدوية والجرعات..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات الطبيب</label>
+      <textarea class="form-control" id="sNotes" rows="2" placeholder="ملاحظات إضافية..."></textarea>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">الرسوم (ج.م)</label>
+        <input type="number" class="form-control" id="sFee" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">حالة الدفع</label>
+        <select class="form-control" id="sPaid">
+          <option value="true">مدفوع</option>
+          <option value="false">غير مدفوع</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveSession()">حفظ الجلسة</button>
+      <button class="btn btn-outline" onclick="closeModal('addSessionModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- View/Edit Session Modal -->
+<div class="modal-overlay" id="sessionDetailModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <span class="modal-title">📋 تفاصيل الجلسة</span>
+      <button class="modal-close" onclick="closeModal('sessionDetailModal')">✕</button>
+    </div>
+    <div id="sessionDetailContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="openEditSession()">✏ تعديل</button>
+      <button class="btn btn-danger" onclick="deleteSession()">🗑 حذف</button>
+      <button class="btn btn-outline" onclick="closeModal('sessionDetailModal')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Session Modal -->
+<div class="modal-overlay" id="editSessionModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <span class="modal-title">✏ تعديل الجلسة</span>
+      <button class="modal-close" onclick="closeModal('editSessionModal')">✕</button>
+    </div>
+    <input type="hidden" id="editSessionId">
+    <div class="form-group">
+      <label class="form-label">المريض</label>
+      <select class="form-control" id="esPatient"></select>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">التاريخ</label>
+        <input type="date" class="form-control" id="esDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الحالة</label>
+        <select class="form-control" id="esStatus">
+          <option value="completed">مكتملة</option>
+          <option value="ongoing">جارية</option>
+          <option value="cancelled">ملغية</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">التشخيص</label>
+      <input type="text" class="form-control" id="esDiagnosis">
+    </div>
+    <div class="form-group">
+      <label class="form-label">الوصفة الطبية</label>
+      <textarea class="form-control" id="esPrescription" rows="2"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <textarea class="form-control" id="esNotes" rows="2"></textarea>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">الرسوم (ج.م)</label>
+        <input type="number" class="form-control" id="esFee" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">حالة الدفع</label>
+        <select class="form-control" id="esPaid">
+          <option value="true">مدفوع</option>
+          <option value="false">غير مدفوع</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="updateSession()">حفظ التعديلات</button>
+      <button class="btn btn-outline" onclick="closeModal('editSessionModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('sessions.html');
+  if (!user) location.href = 'login.html';
+
+  let selectedSessionId = null;
+  document.getElementById('sDate').value = Utils.todayStr();
+
+  function populatePatientSelects() {
+    const patients = Patients.getAll(user.id);
+    const opts = patients.map(p => `<option value="${p.id}">${Utils.escapeHtml(p.name)}</option>`).join('');
+    document.getElementById('sPatient').innerHTML = '<option value="">اختر مريضاً...</option>' + opts;
+    document.getElementById('esPatient').innerHTML = opts;
+  }
+  populatePatientSelects();
+
+  function renderStats() {
+    const sessions = Sessions.getAll(user.id);
+    const completed = sessions.filter(s => s.status === 'completed').length;
+    const revenue = sessions.filter(s => s.paid).reduce((sum,s) => sum+(s.fee||0), 0);
+    const pending = sessions.filter(s => !s.paid).reduce((sum,s) => sum+(s.fee||0), 0);
+    document.getElementById('sessionStats').innerHTML = `
+      <div class="stat-card"><div class="stat-icon navy">⚕</div><div class="stat-body"><div class="stat-value">${sessions.length}</div><div class="stat-label">إجمالي الجلسات</div></div></div>
+      <div class="stat-card"><div class="stat-icon green">✓</div><div class="stat-body"><div class="stat-value">${completed}</div><div class="stat-label">جلسات مكتملة</div></div></div>
+      <div class="stat-card"><div class="stat-icon gold">💰</div><div class="stat-body"><div class="stat-value">${revenue.toLocaleString()}</div><div class="stat-label">إيرادات محصلة (ج.م)</div></div></div>
+      <div class="stat-card"><div class="stat-icon coral">⏳</div><div class="stat-body"><div class="stat-value">${pending.toLocaleString()}</div><div class="stat-label">مبالغ معلقة (ج.م)</div></div></div>
+    `;
+  }
+
+  function renderSessions() {
+    let sessions = Sessions.getAll(user.id);
+    const search = document.getElementById('sessionSearch').value.toLowerCase();
+    const statusF = document.getElementById('filterSessionStatus').value;
+    const paidF = document.getElementById('filterPaid').value;
+    const dateF = document.getElementById('filterSessionDate').value;
+    const patients = DB.get('patients', []);
+
+    if (search) {
+      sessions = sessions.filter(s => {
+        const p = patients.find(p => p.id === s.patientId);
+        return (p && p.name.toLowerCase().includes(search)) || (s.diagnosis && s.diagnosis.toLowerCase().includes(search));
+      });
+    }
+    if (statusF) sessions = sessions.filter(s => s.status === statusF);
+    if (paidF === 'paid') sessions = sessions.filter(s => s.paid);
+    if (paidF === 'unpaid') sessions = sessions.filter(s => !s.paid);
+    if (dateF) sessions = sessions.filter(s => s.date === dateF);
+
+    sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const el = document.getElementById('sessionsList');
+    if (sessions.length === 0) {
+      el.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">⚕</div><h3>لا توجد جلسات</h3><p>لم يتم تسجيل أي جلسات بعد</p><button class="btn btn-primary mt-12" onclick="openModal('addSessionModal')">+ إضافة جلسة</button></div></div>`;
+      return;
+    }
+
+    el.innerHTML = sessions.map(s => {
+      const patient = patients.find(p => p.id === s.patientId);
+      const statusMap = { completed:['مكتملة','badge-success'], ongoing:['جارية','badge-warning'], cancelled:['ملغية','badge-danger'] };
+      const [slabel, scls] = statusMap[s.status] || ['؟','badge-gray'];
+      return `<div class="card mb-10" style="cursor:pointer;" onclick="viewSession(${s.id})">
+        <div class="flex-between">
+          <div class="flex gap-12" style="align-items:center;">
+            <div class="patient-avatar" style="width:40px;height:40px;font-size:0.9rem;">${Utils.getInitials(patient ? patient.name : '؟')}</div>
+            <div>
+              <div class="font-bold">${Utils.escapeHtml(patient ? patient.name : 'مريض غير معروف')}</div>
+              <div class="text-muted text-sm">${Utils.formatDateShort(s.date)} ${s.diagnosis ? '• ' + Utils.escapeHtml(s.diagnosis) : ''}</div>
+            </div>
+          </div>
+          <div class="flex gap-8" style="align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+            <span class="badge ${scls}">${slabel}</span>
+            <span class="badge ${s.paid ? 'badge-success' : 'badge-warning'}">${s.paid ? '💰 مدفوع' : '⏳ غير مدفوع'}</span>
+            <span class="text-sm font-bold">${(s.fee || 0).toLocaleString()} ج.م</span>
+          </div>
+        </div>
+        ${s.prescription ? `<div class="text-sm text-muted mt-8">💊 ${Utils.escapeHtml(s.prescription)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function viewSession(id) {
+    selectedSessionId = id;
+    const s = Sessions.get(id);
+    if (!s) return;
+    const patient = Patients.get(s.patientId);
+    const statusMap = { completed:'مكتملة', ongoing:'جارية', cancelled:'ملغية' };
+
+    document.getElementById('sessionDetailContent').innerHTML = `
+      <div class="flex gap-12 mb-16" style="align-items:center;">
+        <div class="patient-avatar" style="width:48px;height:48px;">${Utils.getInitials(patient ? patient.name : '؟')}</div>
+        <div>
+          <div class="font-bold" style="font-size:1.05rem;">${Utils.escapeHtml(patient ? patient.name : 'مريض غير معروف')}</div>
+          <div class="text-muted text-sm">${Utils.formatDate(s.date)}</div>
+        </div>
+        <div class="flex gap-8 mr-auto">
+          <span class="badge ${s.status==='completed'?'badge-success':'badge-warning'}">${statusMap[s.status]||'؟'}</span>
+          <span class="badge ${s.paid?'badge-success':'badge-warning'}">${s.paid?'مدفوع':'غير مدفوع'}</span>
+        </div>
+      </div>
+      <div class="grid-2 mb-16">
+        <div class="card" style="padding:12px;"><div class="text-xs text-muted mb-4">التشخيص</div><div class="font-bold">${Utils.escapeHtml(s.diagnosis || 'لم يسجل')}</div></div>
+        <div class="card" style="padding:12px;"><div class="text-xs text-muted mb-4">الرسوم</div><div class="font-bold" style="color:var(--accent-green);">${(s.fee||0).toLocaleString()} ج.م</div></div>
+      </div>
+      ${s.prescription ? `<div class="form-group"><label class="form-label">الوصفة الطبية</label><div class="card" style="padding:12px;background:var(--surface-2);">${Utils.escapeHtml(s.prescription)}</div></div>` : ''}
+      ${s.notes ? `<div class="form-group"><label class="form-label">ملاحظات</label><div class="card" style="padding:12px;background:var(--surface-2);">${Utils.escapeHtml(s.notes)}</div></div>` : ''}
+    `;
+    openModal('sessionDetailModal');
+  }
+
+  function openEditSession() {
+    const s = Sessions.get(selectedSessionId);
+    if (!s) return;
+    closeModal('sessionDetailModal');
+    document.getElementById('editSessionId').value = s.id;
+    document.getElementById('esDate').value = s.date || '';
+    document.getElementById('esStatus').value = s.status || 'completed';
+    document.getElementById('esDiagnosis').value = s.diagnosis || '';
+    document.getElementById('esPrescription').value = s.prescription || '';
+    document.getElementById('esNotes').value = s.notes || '';
+    document.getElementById('esFee').value = s.fee || 0;
+    document.getElementById('esPaid').value = s.paid ? 'true' : 'false';
+    const sel = document.getElementById('esPatient');
+    for (let opt of sel.options) { if (parseInt(opt.value) === s.patientId) { opt.selected = true; break; } }
+    openModal('editSessionModal');
+  }
+
+  function updateSession() {
+    const id = parseInt(document.getElementById('editSessionId').value);
+    Sessions.update(id, {
+      patientId: parseInt(document.getElementById('esPatient').value),
+      date: document.getElementById('esDate').value,
+      status: document.getElementById('esStatus').value,
+      diagnosis: document.getElementById('esDiagnosis').value,
+      prescription: document.getElementById('esPrescription').value,
+      notes: document.getElementById('esNotes').value,
+      fee: parseFloat(document.getElementById('esFee').value) || 0,
+      paid: document.getElementById('esPaid').value === 'true'
+    });
+    closeModal('editSessionModal');
+    renderSessions();
+    renderStats();
+    showToast('تم تحديث الجلسة');
+  }
+
+  function deleteSession() {
+    if (!confirm('هل تريد حذف هذه الجلسة؟')) return;
+    Sessions.delete(selectedSessionId);
+    closeModal('sessionDetailModal');
+    renderSessions();
+    renderStats();
+    showToast('تم حذف الجلسة', 'warning');
+  }
+
+  function saveSession() {
+    const patientId = parseInt(document.getElementById('sPatient').value);
+    const date = document.getElementById('sDate').value;
+    if (!patientId || !date) { showToast('يرجى اختيار المريض والتاريخ', 'error'); return; }
+    Sessions.add({
+      patientId, date,
+      status: document.getElementById('sStatus').value,
+      diagnosis: document.getElementById('sDiagnosis').value,
+      prescription: document.getElementById('sPrescription').value,
+      notes: document.getElementById('sNotes').value,
+      fee: parseFloat(document.getElementById('sFee').value) || 0,
+      paid: document.getElementById('sPaid').value === 'true',
+      doctorId: user.id, clinicId: user.clinicId || 1
+    });
+    closeModal('addSessionModal');
+    renderSessions();
+    renderStats();
+    showToast('تم إضافة الجلسة بنجاح');
+  }
+
+  renderStats();
+  renderSessions();
+</script>
+</body>
+</html>

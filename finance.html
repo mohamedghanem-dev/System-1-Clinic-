@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المالية - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header flex-between">
+      <div>
+        <h1>💰 الإدارة المالية</h1>
+        <p>متابعة الإيرادات والمدفوعات المعلقة</p>
+      </div>
+      <div class="flex gap-8">
+        <select class="form-control" id="financePeriod" style="width:160px;" onchange="renderAll()">
+          <option value="7">آخر 7 أيام</option>
+          <option value="30" selected>آخر 30 يوم</option>
+          <option value="90">آخر 3 أشهر</option>
+          <option value="all">الكل</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Finance KPIs -->
+    <div class="stats-grid mb-20" id="financeKPIs"></div>
+
+    <!-- Unpaid Sessions -->
+    <div class="card mb-20">
+      <div class="card-header">
+        <span class="card-title">⏳ المبالغ المعلقة</span>
+        <span class="badge badge-warning" id="pendingCount"></span>
+      </div>
+      <div id="unpaidList"></div>
+    </div>
+
+    <!-- Payment History -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">✅ سجل المدفوعات</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr><th>التاريخ</th><th>المريض</th><th>نوع الجلسة</th><th>المبلغ</th><th>الحالة</th><th>إجراءات</th></tr>
+          </thead>
+          <tbody id="paymentHistoryBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast-container"></div>
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('finance.html');
+  if (!user) location.href = 'login.html';
+
+  function getFilteredSessions() {
+    const days = document.getElementById('financePeriod').value;
+    let sessions = Sessions.getAll(user.id);
+    if (days !== 'all') {
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - parseInt(days));
+      sessions = sessions.filter(s => new Date(s.date) >= cutoff);
+    }
+    return sessions;
+  }
+
+  function renderKPIs() {
+    const sessions = getFilteredSessions();
+    const paid = sessions.filter(s => s.paid);
+    const unpaid = sessions.filter(s => !s.paid);
+    const totalRev = paid.reduce((sum, s) => sum + (s.fee || 0), 0);
+    const totalPend = unpaid.reduce((sum, s) => sum + (s.fee || 0), 0);
+    const total = sessions.reduce((sum, s) => sum + (s.fee || 0), 0);
+    const collRate = total > 0 ? Math.round((totalRev / total) * 100) : 0;
+
+    document.getElementById('financeKPIs').innerHTML = `
+      <div class="stat-card"><div class="stat-icon green">💰</div><div class="stat-body"><div class="stat-value">${totalRev.toLocaleString()}</div><div class="stat-label">إجمالي الإيرادات (ج.م)</div></div></div>
+      <div class="stat-card"><div class="stat-icon coral">⏳</div><div class="stat-body"><div class="stat-value">${totalPend.toLocaleString()}</div><div class="stat-label">مبالغ معلقة (ج.م)</div></div></div>
+      <div class="stat-card"><div class="stat-icon navy">📊</div><div class="stat-body"><div class="stat-value">${total.toLocaleString()}</div><div class="stat-label">إجمالي المطلوب (ج.م)</div></div></div>
+      <div class="stat-card"><div class="stat-icon ${collRate>=80?'green':collRate>=50?'gold':'coral'}">%</div><div class="stat-body"><div class="stat-value">${collRate}%</div><div class="stat-label">نسبة التحصيل</div></div></div>
+    `;
+  }
+
+  function renderUnpaid() {
+    const sessions = getFilteredSessions().filter(s => !s.paid);
+    const patients = DB.get('patients', []);
+    document.getElementById('pendingCount').textContent = sessions.length + ' جلسة';
+    const el = document.getElementById('unpaidList');
+    if (sessions.length === 0) {
+      el.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="empty-icon">✅</div><h3>لا توجد مبالغ معلقة</h3><p>جميع المدفوعات تمت</p></div>';
+      return;
+    }
+    el.innerHTML = sessions.sort((a, b) => new Date(b.date) - new Date(a.date)).map(s => {
+      const p = patients.find(pt => pt.id === s.patientId);
+      return `<div class="flex-between" style="padding:12px 0;border-bottom:1px solid var(--border-light);">
+        <div class="flex gap-10" style="align-items:center;">
+          <div class="patient-avatar" style="width:36px;height:36px;font-size:0.8rem;">${Utils.getInitials(p ? p.name : '؟')}</div>
+          <div>
+            <div class="font-bold text-sm">${Utils.escapeHtml(p ? p.name : '-')}</div>
+            <div class="text-xs text-muted">${Utils.formatDateShort(s.date)} ${s.diagnosis ? '• ' + s.diagnosis : ''}</div>
+          </div>
+        </div>
+        <div class="flex gap-10" style="align-items:center;">
+          <span class="font-bold" style="color:var(--danger);">${(s.fee||0).toLocaleString()} ج.م</span>
+          <button class="btn btn-success btn-sm" onclick="markPaid(${s.id})">✓ تحصيل</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderPaymentHistory() {
+    const sessions = getFilteredSessions().filter(s => s.paid);
+    const patients = DB.get('patients', []);
+    sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const tbody = document.getElementById('paymentHistoryBody');
+    if (sessions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:20px;">لا توجد مدفوعات</td></tr>';
+      return;
+    }
+    tbody.innerHTML = sessions.map(s => {
+      const p = patients.find(pt => pt.id === s.patientId);
+      return `<tr>
+        <td>${Utils.formatDateShort(s.date)}</td>
+        <td>${Utils.escapeHtml(p ? p.name : '-')}</td>
+        <td>${Utils.escapeHtml(s.diagnosis || 'كشف')}</td>
+        <td class="font-bold" style="color:var(--accent-green);">${(s.fee||0).toLocaleString()} ج.م</td>
+        <td><span class="badge badge-success">مدفوع ✓</span></td>
+        <td><button class="btn btn-ghost btn-sm" onclick="markUnpaid(${s.id})">إلغاء الدفع</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function markPaid(id) {
+    Sessions.update(id, { paid: true });
+    renderAll();
+    showToast('تم تسجيل الدفع');
+  }
+
+  function markUnpaid(id) {
+    if (!confirm('هل تريد إلغاء تسجيل هذا الدفع؟')) return;
+    Sessions.update(id, { paid: false });
+    renderAll();
+    showToast('تم إلغاء تسجيل الدفع', 'warning');
+  }
+
+  function renderAll() {
+    renderKPIs();
+    renderUnpaid();
+    renderPaymentHistory();
+  }
+
+  renderAll();
+</script>
+</body>
+</html>

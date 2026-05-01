@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المرضى - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header flex-between">
+      <div>
+        <h1>👥 قائمة المرضى</h1>
+        <p>إدارة وعرض سجلات المرضى والجلسات الخاصة بهم</p>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('addPatientModal')">+ مريض جديد</button>
+    </div>
+
+    <!-- Search & Filter -->
+    <div class="card mb-16" style="padding:14px 16px;">
+      <div class="flex gap-10 flex-wrap">
+        <div class="search-bar" style="flex:1;min-width:200px;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" id="patientSearch" placeholder="بحث باسم المريض أو رقم الهاتف..." oninput="renderPatients()">
+        </div>
+        <select class="form-control" style="width:140px;" id="filterGender" onchange="renderPatients()">
+          <option value="">جميع الجنس</option>
+          <option value="ذكر">ذكور</option>
+          <option value="أنثى">إناث</option>
+        </select>
+        <select class="form-control" style="width:140px;" id="sortPatients" onchange="renderPatients()">
+          <option value="recent">الأحدث أولاً</option>
+          <option value="name">الاسم أ-ي</option>
+          <option value="sessions">عدد الجلسات</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-grid mb-16" id="patientStats" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));"></div>
+
+    <!-- Patients List -->
+    <div id="patientsList"></div>
+  </main>
+</div>
+
+<!-- Add Patient Modal -->
+<div class="modal-overlay" id="addPatientModal">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-header">
+      <span class="modal-title">👤 إضافة مريض جديد</span>
+      <button class="modal-close" onclick="closeModal('addPatientModal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">الاسم الكامل <span>*</span></label>
+        <input type="text" class="form-control" id="pName" placeholder="اسم المريض كاملاً">
+      </div>
+      <div class="form-group">
+        <label class="form-label">رقم الهاتف <span>*</span></label>
+        <input type="tel" class="form-control" id="pPhone" placeholder="01xxxxxxxxx" dir="ltr">
+      </div>
+      <div class="form-group">
+        <label class="form-label">العمر</label>
+        <input type="number" class="form-control" id="pAge" placeholder="العمر بالسنوات" min="0" max="150">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الجنس</label>
+        <select class="form-control" id="pGender">
+          <option value="">اختر...</option>
+          <option value="ذكر">ذكر</option>
+          <option value="أنثى">أنثى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">فصيلة الدم</label>
+        <select class="form-control" id="pBlood">
+          <option value="">غير محدد</option>
+          <option>A+</option><option>A-</option>
+          <option>B+</option><option>B-</option>
+          <option>AB+</option><option>AB-</option>
+          <option>O+</option><option>O-</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">العنوان</label>
+        <input type="text" class="form-control" id="pAddress" placeholder="عنوان المريض">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">ملاحظات طبية</label>
+        <textarea class="form-control" id="pNotes" rows="2" placeholder="الأمراض المزمنة، الحساسية، ملاحظات عامة..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="savePatient()">حفظ المريض</button>
+      <button class="btn btn-outline" onclick="closeModal('addPatientModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Patient Detail Modal -->
+<div class="modal-overlay" id="patientDetailModal">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <span class="modal-title">📋 ملف المريض</span>
+      <button class="modal-close" onclick="closeModal('patientDetailModal')">✕</button>
+    </div>
+    <div id="patientDetailContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addApptFromPatient()">📅 إضافة موعد</button>
+      <button class="btn btn-success" onclick="addSessionFromPatient()">⚕ إضافة جلسة</button>
+      <button class="btn btn-outline" id="editPatientBtn" onclick="editPatient()">✏ تعديل</button>
+      <button class="btn btn-danger" id="deletePatientBtn" onclick="deletePatient()">🗑 حذف</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Patient Modal -->
+<div class="modal-overlay" id="editPatientModal">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-header">
+      <span class="modal-title">✏ تعديل بيانات المريض</span>
+      <button class="modal-close" onclick="closeModal('editPatientModal')">✕</button>
+    </div>
+    <input type="hidden" id="editPatientId">
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">الاسم الكامل</label>
+        <input type="text" class="form-control" id="epName">
+      </div>
+      <div class="form-group">
+        <label class="form-label">رقم الهاتف</label>
+        <input type="tel" class="form-control" id="epPhone" dir="ltr">
+      </div>
+      <div class="form-group">
+        <label class="form-label">العمر</label>
+        <input type="number" class="form-control" id="epAge">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الجنس</label>
+        <select class="form-control" id="epGender">
+          <option value="">اختر...</option>
+          <option value="ذكر">ذكر</option>
+          <option value="أنثى">أنثى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">فصيلة الدم</label>
+        <select class="form-control" id="epBlood">
+          <option value="">غير محدد</option>
+          <option>A+</option><option>A-</option>
+          <option>B+</option><option>B-</option>
+          <option>AB+</option><option>AB-</option>
+          <option>O+</option><option>O-</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">العنوان</label>
+        <input type="text" class="form-control" id="epAddress">
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label class="form-label">ملاحظات</label>
+        <textarea class="form-control" id="epNotes" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="updatePatient()">حفظ التعديلات</button>
+      <button class="btn btn-outline" onclick="closeModal('editPatientModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('patients.html');
+  if (!user) location.href = 'login.html';
+
+  let selectedPatientId = null;
+
+  function renderStats() {
+    const patients = Patients.getAll(user.id);
+    const sessions = Sessions.getAll(user.id);
+    const males = patients.filter(p => p.gender === 'ذكر').length;
+    const females = patients.filter(p => p.gender === 'أنثى').length;
+    document.getElementById('patientStats').innerHTML = `
+      <div class="stat-card"><div class="stat-icon navy">👥</div><div class="stat-body"><div class="stat-value">${patients.length}</div><div class="stat-label">إجمالي المرضى</div></div></div>
+      <div class="stat-card"><div class="stat-icon info">👨</div><div class="stat-body"><div class="stat-value">${males}</div><div class="stat-label">ذكور</div></div></div>
+      <div class="stat-card"><div class="stat-icon purple">👩</div><div class="stat-body"><div class="stat-value">${females}</div><div class="stat-label">إناث</div></div></div>
+      <div class="stat-card"><div class="stat-icon green">⚕</div><div class="stat-body"><div class="stat-value">${sessions.length}</div><div class="stat-label">إجمالي الجلسات</div></div></div>
+    `;
+  }
+
+  function renderPatients() {
+    let patients = Patients.getAll(user.id);
+    const search = document.getElementById('patientSearch').value.toLowerCase();
+    const gFilter = document.getElementById('filterGender').value;
+    const sort = document.getElementById('sortPatients').value;
+    const sessions = Sessions.getAll(user.id);
+
+    if (search) patients = patients.filter(p => p.name.toLowerCase().includes(search) || (p.phone && p.phone.includes(search)));
+    if (gFilter) patients = patients.filter(p => p.gender === gFilter);
+
+    if (sort === 'name') patients.sort((a,b) => a.name.localeCompare(b.name, 'ar'));
+    else if (sort === 'recent') patients.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    else if (sort === 'sessions') patients.sort((a,b) => sessions.filter(s=>s.patientId===b.id).length - sessions.filter(s=>s.patientId===a.id).length);
+
+    const el = document.getElementById('patientsList');
+    if (patients.length === 0) {
+      el.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">👥</div><h3>لا يوجد مرضى</h3><p>${search ? 'لم يتم العثور على نتائج' : 'لم يتم إضافة أي مرضى بعد'}</p><button class="btn btn-primary mt-12" onclick="openModal('addPatientModal')">+ إضافة مريض</button></div></div>`;
+      return;
+    }
+    el.innerHTML = patients.map(p => {
+      const patSessions = sessions.filter(s => s.patientId === p.id).length;
+      return `<div class="patient-row" onclick="viewPatient(${p.id})">
+        <div class="patient-avatar">${Utils.getInitials(p.name)}</div>
+        <div class="patient-info">
+          <div class="patient-name">${Utils.escapeHtml(p.name)}</div>
+          <div class="patient-meta">
+            <span>📞 ${Utils.escapeHtml(p.phone || '-')}</span>
+            <span>🎂 ${p.age || '-'} سنة</span>
+            ${p.gender ? `<span>${p.gender === 'ذكر' ? '👨' : '👩'} ${p.gender}</span>` : ''}
+            ${p.bloodType ? `<span>🩸 ${p.bloodType}</span>` : ''}
+          </div>
+        </div>
+        <div class="flex gap-8" style="align-items:center;">
+          <span class="badge badge-navy">${patSessions} جلسة</span>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();viewPatient(${p.id})">عرض</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function viewPatient(id) {
+    selectedPatientId = id;
+    const p = Patients.get(id);
+    if (!p) return;
+    const sessions = Sessions.getAll(user.id).filter(s => s.patientId === id);
+    const appts = Appointments.getAll(user.id).filter(a => a.patientId === id);
+
+    document.getElementById('patientDetailContent').innerHTML = `
+      <div class="flex gap-12 mb-16" style="align-items:center;">
+        <div class="patient-avatar" style="width:56px;height:56px;font-size:1.2rem;">${Utils.getInitials(p.name)}</div>
+        <div>
+          <div class="font-bold" style="font-size:1.1rem;">${Utils.escapeHtml(p.name)}</div>
+          <div class="text-muted text-sm">${p.age ? p.age+' سنة •' : ''} ${p.gender || ''} ${p.bloodType ? '• 🩸'+p.bloodType : ''}</div>
+          <div class="text-sm mt-4">📞 <span dir="ltr">${Utils.escapeHtml(p.phone || '-')}</span></div>
+        </div>
+      </div>
+      ${p.notes ? `<div class="alert alert-info mb-12"><div class="alert-title">ملاحظات طبية</div><p>${Utils.escapeHtml(p.notes)}</p></div>` : ''}
+      <div class="flex gap-12 mb-16">
+        <div class="card" style="flex:1;text-align:center;padding:12px;">
+          <div class="stat-value">${sessions.length}</div>
+          <div class="stat-label">إجمالي الجلسات</div>
+        </div>
+        <div class="card" style="flex:1;text-align:center;padding:12px;">
+          <div class="stat-value">${appts.length}</div>
+          <div class="stat-label">المواعيد</div>
+        </div>
+        <div class="card" style="flex:1;text-align:center;padding:12px;">
+          <div class="stat-value">${sessions.filter(s=>s.paid).reduce((sum,s)=>sum+(s.fee||0),0).toLocaleString()}</div>
+          <div class="stat-label">المدفوعات</div>
+        </div>
+      </div>
+      <div class="content-tabs">
+        <button class="content-tab active" onclick="showPatientTab('sessions',this)">الجلسات (${sessions.length})</button>
+        <button class="content-tab" onclick="showPatientTab('appts',this)">المواعيد (${appts.length})</button>
+      </div>
+      <div id="patientTabContent">
+        ${renderPatientSessions(sessions)}
+      </div>
+    `;
+    window._currentPatientSessions = sessions;
+    window._currentPatientAppts = appts;
+    openModal('patientDetailModal');
+  }
+
+  function renderPatientSessions(sessions) {
+    if (sessions.length === 0) return '<div class="empty-state" style="padding:20px 0;"><p>لا توجد جلسات مسجلة</p></div>';
+    return sessions.map(s => `
+      <div class="card mb-8" style="padding:12px;">
+        <div class="flex-between">
+          <div class="font-bold text-sm">${Utils.formatDateShort(s.date)}</div>
+          <span class="badge ${s.status==='completed'?'badge-success':'badge-warning'}">${s.status==='completed'?'مكتملة':'جارية'}</span>
+        </div>
+        <div class="text-sm mt-4"><strong>التشخيص:</strong> ${Utils.escapeHtml(s.diagnosis || '-')}</div>
+        ${s.prescription ? `<div class="text-sm mt-2"><strong>الوصفة:</strong> ${Utils.escapeHtml(s.prescription)}</div>` : ''}
+        <div class="flex gap-12 mt-8">
+          <span class="text-sm text-muted">💰 ${s.fee || 0} ج.م</span>
+          <span class="badge ${s.paid ? 'badge-success' : 'badge-warning'}">${s.paid ? 'مدفوع' : 'غير مدفوع'}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function showPatientTab(tab, btn) {
+    document.querySelectorAll('#patientDetailContent .content-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const el = document.getElementById('patientTabContent');
+    if (tab === 'sessions') el.innerHTML = renderPatientSessions(window._currentPatientSessions || []);
+    else {
+      const appts = window._currentPatientAppts || [];
+      if (appts.length === 0) { el.innerHTML = '<div class="empty-state" style="padding:20px 0;"><p>لا توجد مواعيد مسجلة</p></div>'; return; }
+      el.innerHTML = appts.map(a => `<div class="appt-card" style="cursor:default;margin-bottom:8px;">
+        <div class="appt-time"><div class="hour" style="font-size:0.85rem;">${Utils.formatTime(a.time)}</div><div class="period">${Utils.formatDateShort(a.date)}</div></div>
+        <div class="appt-info"><div class="appt-name">${a.type || 'كشف'}</div></div>
+        <span class="badge ${a.status==='confirmed'?'badge-success':a.status==='pending'?'badge-warning':'badge-navy'}">${a.status==='confirmed'?'مؤكد':a.status==='pending'?'معلق':'مكتمل'}</span>
+      </div>`).join('');
+    }
+  }
+
+  function editPatient() {
+    const p = Patients.get(selectedPatientId);
+    if (!p) return;
+    closeModal('patientDetailModal');
+    document.getElementById('editPatientId').value = p.id;
+    document.getElementById('epName').value = p.name || '';
+    document.getElementById('epPhone').value = p.phone || '';
+    document.getElementById('epAge').value = p.age || '';
+    document.getElementById('epGender').value = p.gender || '';
+    document.getElementById('epBlood').value = p.bloodType || '';
+    document.getElementById('epAddress').value = p.address || '';
+    document.getElementById('epNotes').value = p.notes || '';
+    openModal('editPatientModal');
+  }
+
+  function updatePatient() {
+    const id = parseInt(document.getElementById('editPatientId').value);
+    Patients.update(id, {
+      name: document.getElementById('epName').value,
+      phone: document.getElementById('epPhone').value,
+      age: parseInt(document.getElementById('epAge').value) || null,
+      gender: document.getElementById('epGender').value,
+      bloodType: document.getElementById('epBlood').value,
+      address: document.getElementById('epAddress').value,
+      notes: document.getElementById('epNotes').value
+    });
+    closeModal('editPatientModal');
+    renderPatients();
+    showToast('تم تحديث بيانات المريض');
+  }
+
+  function deletePatient() {
+    if (!confirm('هل تريد حذف هذا المريض وجميع بياناته؟')) return;
+    Patients.delete(selectedPatientId);
+    closeModal('patientDetailModal');
+    renderPatients();
+    renderStats();
+    showToast('تم حذف المريض', 'warning');
+  }
+
+  function addApptFromPatient() {
+    closeModal('patientDetailModal');
+    window.location.href = 'appointments.html';
+  }
+
+  function addSessionFromPatient() {
+    closeModal('patientDetailModal');
+    window.location.href = 'sessions.html';
+  }
+
+  function savePatient() {
+    const name = document.getElementById('pName').value.trim();
+    const phone = document.getElementById('pPhone').value.trim();
+    if (!name || !phone) { showToast('يرجى إدخال الاسم ورقم الهاتف', 'error'); return; }
+    Patients.add({
+      name, phone,
+      age: parseInt(document.getElementById('pAge').value) || null,
+      gender: document.getElementById('pGender').value,
+      bloodType: document.getElementById('pBlood').value,
+      address: document.getElementById('pAddress').value,
+      notes: document.getElementById('pNotes').value,
+      doctorId: user.id, clinicId: user.clinicId || 1
+    });
+    closeModal('addPatientModal');
+    // Reset form
+    ['pName','pPhone','pAge','pAddress','pNotes'].forEach(id => document.getElementById(id).value = '');
+    renderPatients();
+    renderStats();
+    showToast('تم إضافة المريض بنجاح');
+  }
+
+  renderStats();
+  renderPatients();
+</script>
+</body>
+</html>

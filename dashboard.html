@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الرئيسية - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a3a4a">
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content" id="mainContent">
+    <div class="page-header flex-between">
+      <div>
+        <h1 id="welcomeMsg">مرحباً 👋</h1>
+        <p>إليك ملخص سريع لأدائك وحالاتك اليوم</p>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn btn-success" onclick="window.location.href='appointments.html'">
+          📅 إضافة موعد
+        </button>
+        <button class="btn btn-primary" onclick="window.location.href='patients.html'">
+          👤 مريض جديد
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="statsGrid">
+      <!-- Injected by JS -->
+    </div>
+
+    <div class="grid-2 mb-20" style="gap:20px;">
+      <!-- Today's Appointments -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📅 مواعيد اليوم</span>
+          <a href="appointments.html" class="btn btn-ghost btn-sm">عرض الكل</a>
+        </div>
+        <div id="todayAppointments"></div>
+      </div>
+
+      <!-- Mini Calendar -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="mini-calendar" id="miniCalendar"></div>
+        <div style="padding:16px;">
+          <div class="card-title mb-12">⚡ إجراءات سريعة</div>
+          <div class="quick-actions">
+            <button class="quick-action-btn" onclick="window.location.href='appointments.html'">
+              <span class="qa-icon">📅</span>
+              <span class="qa-label">جدول المواعيد</span>
+            </button>
+            <button class="quick-action-btn" onclick="window.location.href='patients.html'">
+              <span class="qa-icon">👥</span>
+              <span class="qa-label">قائمة المرضى</span>
+            </button>
+            <button class="quick-action-btn" onclick="window.location.href='sessions.html'">
+              <span class="qa-icon">⚕</span>
+              <span class="qa-label">الجلسات</span>
+            </button>
+            <button class="quick-action-btn" onclick="window.location.href='reports.html'">
+              <span class="qa-icon">📊</span>
+              <span class="qa-label">التقارير</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Patients -->
+    <div class="card mb-20">
+      <div class="card-header">
+        <span class="card-title">👥 آخر المرضى</span>
+        <a href="patients.html" class="btn btn-ghost btn-sm">عرض الكل</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table" id="recentPatientsTable">
+          <thead>
+            <tr>
+              <th>المريض</th>
+              <th>الهاتف</th>
+              <th>العمر</th>
+              <th>عدد الجلسات</th>
+              <th>تاريخ التسجيل</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="recentPatientsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🕐 سجل النشاط الأخير</span>
+      </div>
+      <div class="timeline" id="activityTimeline"></div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast-container"></div>
+
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('dashboard.html');
+  if (!user) location.href = 'login.html';
+
+  // Welcome message
+  document.getElementById('welcomeMsg').textContent = `مرحباً، ${user.role === 'doctor' ? 'د.' : ''} ${user.name.split(' ')[1] || user.name} 👋`;
+
+  // Stats
+  function renderStats() {
+    const s = Reports.getSummary(user.id);
+    const settings = DB.get('settings', {});
+    const currency = settings.currency || 'ج.م';
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-icon navy">👥</div>
+        <div class="stat-body">
+          <div class="stat-value">${s.patients}</div>
+          <div class="stat-label">إجمالي المرضى</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">📅</div>
+        <div class="stat-body">
+          <div class="stat-value">${s.todayAppts}</div>
+          <div class="stat-label">مواعيد اليوم</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon gold">⚕</div>
+        <div class="stat-body">
+          <div class="stat-value">${s.sessions}</div>
+          <div class="stat-label">إجمالي الجلسات</div>
+        </div>
+      </div>
+      ${user.role === 'doctor' ? `
+      <div class="stat-card">
+        <div class="stat-icon green">💰</div>
+        <div class="stat-body">
+          <div class="stat-value">${s.totalRevenue.toLocaleString()}</div>
+          <div class="stat-label">الإيرادات المحصلة (${currency})</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon coral">⏳</div>
+        <div class="stat-body">
+          <div class="stat-value">${s.pendingRevenue.toLocaleString()}</div>
+          <div class="stat-label">مبالغ معلقة (${currency})</div>
+        </div>
+      </div>
+      ` : ''}
+    `;
+  }
+
+  // Today's Appointments
+  function renderTodayAppts() {
+    const appts = Appointments.getToday(user.id);
+    const patients = DB.get('patients', []);
+    const el = document.getElementById('todayAppointments');
+    if (appts.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><h3>لا توجد مواعيد اليوم</h3><p>لم يتم تسجيل أي مواعيد لهذا اليوم</p></div>`;
+      return;
+    }
+    const statusMap = { confirmed: ['مؤكد','badge-success'], pending: ['معلق','badge-warning'], cancelled: ['ملغي','badge-danger'], completed: ['مكتمل','badge-navy'] };
+    el.innerHTML = appts.slice(0,5).map(a => {
+      const patient = patients.find(p => p.id === a.patientId);
+      const [label, cls] = statusMap[a.status] || ['؟','badge-gray'];
+      return `<div class="appt-card" onclick="window.location.href='appointments.html'">
+        <div class="appt-time">
+          <div class="hour">${Utils.formatTime(a.time).split(' ')[0]}</div>
+          <div class="period">${Utils.formatTime(a.time).split(' ')[1] || ''}</div>
+        </div>
+        <div class="appt-info">
+          <div class="appt-name">${Utils.escapeHtml(patient ? patient.name : 'مريض غير معروف')}</div>
+          <div class="appt-meta">
+            <span>${a.type || 'كشف'}</span>
+            <span>${a.duration || 30} دقيقة</span>
+          </div>
+        </div>
+        <div class="appt-status"><span class="badge ${cls}">${label}</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  // Recent Patients
+  function renderRecentPatients() {
+    const patients = Patients.getAll(user.id).slice(-5).reverse();
+    const sessions = Sessions.getAll(user.id);
+    const tbody = document.getElementById('recentPatientsBody');
+    if (patients.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding:30px;">لا يوجد مرضى مسجلون</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = patients.map(p => {
+      const patSessions = sessions.filter(s => s.patientId === p.id).length;
+      return `<tr>
+        <td><div class="flex gap-10" style="align-items:center;">
+          <div class="patient-avatar" style="width:32px;height:32px;font-size:0.78rem;">${Utils.getInitials(p.name)}</div>
+          <span class="font-bold">${Utils.escapeHtml(p.name)}</span>
+        </div></td>
+        <td dir="ltr">${Utils.escapeHtml(p.phone)}</td>
+        <td>${p.age || '-'} سنة</td>
+        <td><span class="badge badge-navy">${patSessions} جلسة</span></td>
+        <td>${Utils.formatDateShort(p.createdAt)}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="window.location.href='patients.html'">عرض</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Mini Calendar
+  function renderMiniCalendar() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const monthNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const dayNames = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = now.getDate();
+
+    const appts = Appointments.getAll(user.id);
+    const apptDates = new Set(appts.filter(a => {
+      const d = new Date(a.date);
+      return d.getFullYear() === year && d.getMonth() === month;
+    }).map(a => new Date(a.date).getDate()));
+
+    let daysHtml = '';
+    for (let i = 0; i < firstDay; i++) daysHtml += '<div class="cal-day other-month"></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+      const isToday = d === today ? 'today' : '';
+      const hasAppt = apptDates.has(d) ? 'has-appt' : '';
+      daysHtml += `<div class="cal-day ${isToday} ${hasAppt}">${d}</div>`;
+    }
+
+    document.getElementById('miniCalendar').innerHTML = `
+      <div class="cal-header">
+        <button class="cal-nav">‹</button>
+        <span>${monthNames[month]} ${year}</span>
+        <button class="cal-nav">›</button>
+      </div>
+      <div class="cal-grid">
+        <div class="cal-weekdays">${dayNames.map(d => `<div class="cal-weekday">${d}</div>`).join('')}</div>
+        <div class="cal-days">${daysHtml}</div>
+      </div>
+    `;
+  }
+
+  // Activity Timeline
+  function renderActivity() {
+    const sessions = Sessions.getAll(user.id).slice(-5).reverse();
+    const appts = Appointments.getAll(user.id).slice(-3).reverse();
+    const el = document.getElementById('activityTimeline');
+    let items = [];
+    sessions.forEach(s => {
+      const p = Patients.get(s.patientId);
+      items.push({ time: Utils.formatDateShort(s.createdAt), text: `جلسة مع ${p ? p.name : 'مريض'} - ${s.diagnosis || 'تم تسجيل الجلسة'}` });
+    });
+    appts.forEach(a => {
+      const p = Patients.get(a.patientId);
+      items.push({ time: Utils.formatDateShort(a.createdAt), text: `موعد ${a.type || 'كشف'} - ${p ? p.name : 'مريض'}` });
+    });
+    if (items.length === 0) {
+      el.innerHTML = '<p class="text-muted text-sm text-center" style="padding:20px;">لا يوجد نشاط مسجل</p>';
+      return;
+    }
+    el.innerHTML = items.slice(0,6).map(i => `
+      <div class="timeline-item">
+        <div class="timeline-time">${i.time}</div>
+        <div class="timeline-content">${i.text}</div>
+      </div>
+    `).join('');
+  }
+
+  renderStats();
+  renderTodayAppts();
+  renderRecentPatients();
+  renderMiniCalendar();
+  renderActivity();
+</script>
+</body>
+</html>

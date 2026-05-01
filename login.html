@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تسجيل الدخول - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a3a4a">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <style>
+    .pw-toggle { position:absolute; left:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1rem; padding:2px; }
+    .pw-toggle:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+<div class="login-page">
+  <div class="login-bg-decoration">
+    <div class="circle circle-1"></div>
+    <div class="circle circle-2"></div>
+    <div class="circle circle-3"></div>
+  </div>
+
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+          <path d="M11 6h2v2h-2z" opacity="0"/>
+          <path d="M12 2L4 7v10l8 5 8-5V7L12 2zm-1 13.5v-7l6 3.5-6 3.5z" fill="rgba(255,255,255,0.6)"/>
+          <path d="M13 8h-2v3H8v2h3v3h2v-3h3v-2h-3z"/>
+        </svg>
+      </div>
+      <h1>نظام إدارة العيادات</h1>
+      <p>أهلاً بك مجدداً، يرجى إدخال بياناتك للوصول</p>
+    </div>
+
+    <!-- Error Alert -->
+    <div id="loginError" class="alert alert-danger hidden" role="alert">
+      <div>
+        <div class="alert-title">فشل الدخول</div>
+        <p id="loginErrorMsg">اسم المستخدم أو كلمة المرور غير صحيحة</p>
+      </div>
+    </div>
+
+    <!-- Role Switcher -->
+    <div class="role-switcher">
+      <button class="role-btn active" data-role="doctor" onclick="setRole('doctor', this)">
+        <span>⚕</span> طبيب
+      </button>
+      <button class="role-btn" data-role="staff" onclick="setRole('staff', this)">
+        <span>👤</span> موظف / إداري
+      </button>
+    </div>
+
+    <!-- Username -->
+    <div class="form-group">
+      <label class="form-label" id="usernameLabel">اسم المستخدم (طبيب)</label>
+      <div class="form-control-icon">
+        <input type="text" class="form-control" id="username" placeholder="اسم الطبيب" autocomplete="username">
+        <span class="icon" id="usernameIcon">⚕</span>
+      </div>
+    </div>
+
+    <!-- Password -->
+    <div class="form-group">
+      <label class="form-label">كلمة المرور</label>
+      <div class="form-control-icon" style="position:relative;">
+        <input type="password" class="form-control" id="password" placeholder="••••••••" autocomplete="current-password" style="padding-left:38px;">
+        <span class="icon">🔒</span>
+        <button class="pw-toggle" onclick="togglePw()" type="button" id="pwToggle">👁</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-block btn-lg" id="loginBtn" onclick="doLogin()">
+      <span id="loginBtnText">دخول كطبيب</span>
+    </button>
+
+    <div class="login-footer">
+      نظام إدارة العيادات المتكامل &copy; 2026
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  let currentRole = 'doctor';
+
+  // If already logged in, redirect
+  if (Auth.getSession()) {
+    window.location.href = 'dashboard.html';
+  }
+
+  function setRole(role, btn) {
+    currentRole = role;
+    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const usernameLabel = document.getElementById('usernameLabel');
+    const usernameInput = document.getElementById('username');
+    const usernameIcon = document.getElementById('usernameIcon');
+    const loginBtnText = document.getElementById('loginBtnText');
+    if (role === 'doctor') {
+      usernameLabel.textContent = 'اسم المستخدم (طبيب)';
+      usernameInput.placeholder = 'اسم الطبيب';
+      usernameIcon.textContent = '⚕';
+      loginBtnText.textContent = 'دخول كطبيب';
+    } else {
+      usernameLabel.textContent = 'اسم المستخدم (موظف)';
+      usernameInput.placeholder = 'اسم الموظف';
+      usernameIcon.textContent = '👤';
+      loginBtnText.textContent = 'دخول كموظف';
+    }
+    document.getElementById('loginError').classList.add('hidden');
+  }
+
+  function togglePw() {
+    const input = document.getElementById('password');
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+  function doLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+
+    if (!username || !password) {
+      showLoginError('يرجى إدخال اسم المستخدم وكلمة المرور');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span style="opacity:0.7">جاري التحقق...</span>';
+
+    setTimeout(() => {
+      const result = Auth.login(username, password, currentRole);
+      btn.disabled = false;
+      btn.innerHTML = `<span>${currentRole === 'doctor' ? 'دخول كطبيب' : 'دخول كموظف'}</span>`;
+      if (result.ok) {
+        window.location.href = 'dashboard.html';
+      } else {
+        showLoginError(result.msg);
+      }
+    }, 600);
+  }
+
+  function showLoginError(msg) {
+    const err = document.getElementById('loginError');
+    document.getElementById('loginErrorMsg').textContent = msg;
+    err.classList.remove('hidden');
+  }
+
+  // Enter key support
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+</script>
+</body>
+</html>

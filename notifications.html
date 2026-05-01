@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الإشعارات - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header flex-between">
+      <div>
+        <h1>🔔 الإشعارات</h1>
+        <p>مواعيد اليوم والتنبيهات المهمة</p>
+      </div>
+      <button class="btn btn-outline" onclick="markAllRead()">✓ تحديد الكل كمقروء</button>
+    </div>
+
+    <div id="notificationsList"></div>
+  </main>
+</div>
+
+<div class="toast-container"></div>
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('notifications.html');
+  if (!user) location.href = 'login.html';
+
+  function renderNotifications() {
+    const appts = Appointments.getToday(user.id);
+    const sessions = Sessions.getAll(user.id).filter(s => !s.paid);
+    const patients = DB.get('patients', []);
+
+    let notifications = [];
+
+    // Today's appointments
+    appts.forEach(a => {
+      const p = patients.find(pt => pt.id === a.patientId);
+      notifications.push({
+        type: 'appt',
+        icon: '📅',
+        title: `موعد اليوم - ${p ? p.name : 'مريض'}`,
+        msg: `${a.type || 'كشف'} في تمام ${Utils.formatTime(a.time)}`,
+        badge: 'badge-info',
+        label: 'موعد اليوم'
+      });
+    });
+
+    // Unpaid sessions
+    sessions.slice(0, 5).forEach(s => {
+      const p = patients.find(pt => pt.id === s.patientId);
+      notifications.push({
+        type: 'payment',
+        icon: '💰',
+        title: `مبلغ معلق - ${p ? p.name : 'مريض'}`,
+        msg: `${(s.fee || 0).toLocaleString()} ج.م - ${Utils.formatDateShort(s.date)}`,
+        badge: 'badge-warning',
+        label: 'مبلغ معلق'
+      });
+    });
+
+    const el = document.getElementById('notificationsList');
+    if (notifications.length === 0) {
+      el.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">🔔</div><h3>لا توجد إشعارات</h3><p>لا توجد مواعيد أو تنبيهات في الوقت الحالي</p></div></div>`;
+      return;
+    }
+
+    el.innerHTML = notifications.map(n => `
+      <div class="card mb-10" style="border-right:4px solid ${n.type==='appt'?'var(--info)':n.type==='payment'?'var(--warning)':'var(--accent-green)'};">
+        <div class="flex gap-12" style="align-items:center;">
+          <div style="font-size:1.5rem;">${n.icon}</div>
+          <div class="flex-1">
+            <div class="font-bold">${n.title}</div>
+            <div class="text-muted text-sm">${n.msg}</div>
+          </div>
+          <span class="badge ${n.badge}">${n.label}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function markAllRead() {
+    showToast('تم تحديد جميع الإشعارات كمقروءة');
+  }
+
+  renderNotifications();
+</script>
+</body>
+</html>

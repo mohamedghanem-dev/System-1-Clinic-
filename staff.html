@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الموظفون - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header flex-between">
+      <div>
+        <h1>👨‍💼 إدارة الموظفين</h1>
+        <p>إضافة وإدارة حسابات المساعدين والموظفين</p>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('addStaffModal')">+ إضافة موظف</button>
+    </div>
+
+    <div class="alert alert-info mb-16">
+      <div>
+        <div class="alert-title">🔐 كيف تعمل الحسابات؟</div>
+        <p>يمكنك إضافة حسابات للموظفين والمساعدين. يختار كل موظف اسم مستخدم وكلمة مرور خاصة به، ويمكنه تسجيل الدخول باستخدامها من صفحة تسجيل الدخول (اختيار: موظف / إداري).</p>
+      </div>
+    </div>
+
+    <!-- Staff List -->
+    <div id="staffList"></div>
+  </main>
+</div>
+
+<!-- Add Staff Modal -->
+<div class="modal-overlay" id="addStaffModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">👤 إضافة موظف جديد</span>
+      <button class="modal-close" onclick="closeModal('addStaffModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">الاسم الكامل <span>*</span></label>
+      <input type="text" class="form-control" id="stName" placeholder="اسم الموظف">
+    </div>
+    <div class="form-group">
+      <label class="form-label">اسم المستخدم <span>*</span></label>
+      <input type="text" class="form-control" id="stUsername" placeholder="username" dir="ltr">
+      <div class="form-hint">سيستخدم هذا الاسم لتسجيل الدخول</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">كلمة المرور <span>*</span></label>
+      <input type="password" class="form-control" id="stPassword" placeholder="••••••••" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label class="form-label">تأكيد كلمة المرور <span>*</span></label>
+      <input type="password" class="form-control" id="stPasswordConfirm" placeholder="••••••••" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label class="form-label">رقم الهاتف</label>
+      <input type="tel" class="form-control" id="stPhone" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label class="form-label">المسمى الوظيفي</label>
+      <select class="form-control" id="stRole">
+        <option value="سكرتيرة">سكرتيرة</option>
+        <option value="ممرض">ممرض / ممرضة</option>
+        <option value="موظف استقبال">موظف استقبال</option>
+        <option value="محاسب">محاسب</option>
+        <option value="مساعد طبي">مساعد طبي</option>
+        <option value="أخرى">أخرى</option>
+      </select>
+    </div>
+    <div id="addStaffError" class="form-error hidden"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveStaff()">إضافة الموظف</button>
+      <button class="btn btn-outline" onclick="closeModal('addStaffModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Staff Modal -->
+<div class="modal-overlay" id="editStaffModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">✏ تعديل بيانات الموظف</span>
+      <button class="modal-close" onclick="closeModal('editStaffModal')">✕</button>
+    </div>
+    <input type="hidden" id="editStaffId">
+    <div class="form-group">
+      <label class="form-label">الاسم الكامل</label>
+      <input type="text" class="form-control" id="esName">
+    </div>
+    <div class="form-group">
+      <label class="form-label">رقم الهاتف</label>
+      <input type="tel" class="form-control" id="esPhone" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label class="form-label">المسمى الوظيفي</label>
+      <select class="form-control" id="esJobTitle">
+        <option value="سكرتيرة">سكرتيرة</option>
+        <option value="ممرض">ممرض / ممرضة</option>
+        <option value="موظف استقبال">موظف استقبال</option>
+        <option value="محاسب">محاسب</option>
+        <option value="مساعد طبي">مساعد طبي</option>
+        <option value="أخرى">أخرى</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">تغيير كلمة المرور (اتركه فارغاً إن لم تريد التغيير)</label>
+      <input type="password" class="form-control" id="esNewPassword" placeholder="كلمة المرور الجديدة" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label class="form-label">الحالة</label>
+      <select class="form-control" id="esStatus">
+        <option value="active">نشط</option>
+        <option value="inactive">غير نشط</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="updateStaff()">حفظ التعديلات</button>
+      <button class="btn btn-danger" onclick="deleteStaff()">حذف الموظف</button>
+      <button class="btn btn-outline" onclick="closeModal('editStaffModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('staff.html');
+  if (!user || user.role !== 'doctor') {
+    showToast('هذه الصفحة للأطباء فقط', 'error');
+    setTimeout(() => location.href = 'dashboard.html', 1500);
+  }
+
+  let selectedStaffId = null;
+
+  function renderStaff() {
+    const staffList = Staff.getByDoctor(user.id);
+    const el = document.getElementById('staffList');
+    if (staffList.length === 0) {
+      el.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">👨‍💼</div><h3>لا يوجد موظفون</h3><p>لم يتم إضافة أي موظفين بعد</p><button class="btn btn-primary mt-12" onclick="openModal('addStaffModal')">+ إضافة موظف</button></div></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="grid-2">${staffList.map(s => `
+      <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+        <div class="flex gap-12" style="align-items:center;">
+          <div class="patient-avatar" style="width:48px;height:48px;font-size:1rem;background:linear-gradient(135deg,var(--navy),var(--accent-green));">${Utils.getInitials(s.name)}</div>
+          <div>
+            <div class="font-bold">${Utils.escapeHtml(s.name)}</div>
+            <div class="text-muted text-sm">${s.specialty || 'موظف'}</div>
+          </div>
+          <span class="badge ${s.status === 'active' ? 'badge-success' : 'badge-gray'} mr-auto">${s.status === 'active' ? 'نشط' : 'غير نشط'}</span>
+        </div>
+        <div class="flex gap-8 flex-wrap">
+          <div class="text-sm"><span class="text-muted">المستخدم: </span><span class="font-bold" dir="ltr">${Utils.escapeHtml(s.username)}</span></div>
+          ${s.phone ? `<div class="text-sm"><span class="text-muted">الهاتف: </span><span dir="ltr">${Utils.escapeHtml(s.phone)}</span></div>` : ''}
+        </div>
+        <div class="text-xs text-muted">تاريخ الإضافة: ${Utils.formatDateShort(s.createdAt)}</div>
+        <button class="btn btn-outline btn-sm" onclick="editStaffModal(${s.id})">✏ تعديل</button>
+      </div>`).join('')}</div>`;
+  }
+
+  function editStaffModal(id) {
+    selectedStaffId = id;
+    const users = DB.get('users', []);
+    const s = users.find(u => u.id === id);
+    if (!s) return;
+    document.getElementById('editStaffId').value = id;
+    document.getElementById('esName').value = s.name || '';
+    document.getElementById('esPhone').value = s.phone || '';
+    document.getElementById('esJobTitle').value = s.specialty || 'سكرتيرة';
+    document.getElementById('esStatus').value = s.status || 'active';
+    document.getElementById('esNewPassword').value = '';
+    openModal('editStaffModal');
+  }
+
+  function saveStaff() {
+    const name = document.getElementById('stName').value.trim();
+    const username = document.getElementById('stUsername').value.trim();
+    const password = document.getElementById('stPassword').value;
+    const confirm = document.getElementById('stPasswordConfirm').value;
+    const errEl = document.getElementById('addStaffError');
+
+    errEl.classList.add('hidden');
+    if (!name || !username || !password) { errEl.textContent = 'يرجى تعبئة جميع الحقول المطلوبة'; errEl.classList.remove('hidden'); return; }
+    if (password !== confirm) { errEl.textContent = 'كلمتا المرور غير متطابقتين'; errEl.classList.remove('hidden'); return; }
+    if (password.length < 6) { errEl.textContent = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'; errEl.classList.remove('hidden'); return; }
+
+    const result = Staff.add({
+      name, username, password,
+      phone: document.getElementById('stPhone').value,
+      specialty: document.getElementById('stRole').value,
+      createdBy: user.id,
+      clinicId: user.clinicId || 1
+    });
+
+    if (!result.ok) { errEl.textContent = result.msg; errEl.classList.remove('hidden'); return; }
+    closeModal('addStaffModal');
+    ['stName','stUsername','stPassword','stPasswordConfirm','stPhone'].forEach(id => document.getElementById(id).value = '');
+    renderStaff();
+    showToast('تم إضافة الموظف بنجاح');
+  }
+
+  function updateStaff() {
+    const id = parseInt(document.getElementById('editStaffId').value);
+    const newPw = document.getElementById('esNewPassword').value;
+    const updateData = {
+      name: document.getElementById('esName').value,
+      phone: document.getElementById('esPhone').value,
+      specialty: document.getElementById('esJobTitle').value,
+      status: document.getElementById('esStatus').value
+    };
+    if (newPw) {
+      if (newPw.length < 6) { showToast('كلمة المرور يجب أن تكون 6 أحرف على الأقل', 'error'); return; }
+      updateData.password = newPw;
+    }
+    Staff.update(id, updateData);
+    closeModal('editStaffModal');
+    renderStaff();
+    showToast('تم تحديث بيانات الموظف');
+  }
+
+  function deleteStaff() {
+    if (!confirm('هل تريد حذف هذا الموظف؟ لن يتمكن من تسجيل الدخول بعد ذلك.')) return;
+    Staff.delete(selectedStaffId);
+    closeModal('editStaffModal');
+    renderStaff();
+    showToast('تم حذف الموظف', 'warning');
+  }
+
+  renderStaff();
+</script>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الإعدادات - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1>⚙ الإعدادات</h1>
+      <p>إدارة بيانات العيادة وإعدادات الحساب</p>
+    </div>
+
+    <div class="content-tabs">
+      <button class="content-tab active" onclick="showTab('clinic', this)">🏥 العيادة</button>
+      <button class="content-tab" onclick="showTab('account', this)">👤 الحساب</button>
+      <button class="content-tab" onclick="showTab('schedule', this)">📅 جدول العمل</button>
+      <button class="content-tab" onclick="showTab('data', this)">💾 البيانات</button>
+    </div>
+
+    <!-- Clinic Tab -->
+    <div id="tab-clinic" class="tab-content">
+      <div class="card">
+        <div class="card-header"><span class="card-title">🏥 بيانات العيادة</span></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">اسم العيادة</label>
+            <input type="text" class="form-control" id="settClinicName">
+          </div>
+          <div class="form-group">
+            <label class="form-label">اسم الطبيب</label>
+            <input type="text" class="form-control" id="settDoctorName">
+          </div>
+          <div class="form-group">
+            <label class="form-label">رقم الهاتف</label>
+            <input type="tel" class="form-control" id="settPhone" dir="ltr">
+          </div>
+          <div class="form-group">
+            <label class="form-label">العملة</label>
+            <select class="form-control" id="settCurrency">
+              <option value="ج.م">جنيه مصري (ج.م)</option>
+              <option value="ر.س">ريال سعودي (ر.س)</option>
+              <option value="د.إ">درهم إماراتي (د.إ)</option>
+              <option value="د.ك">دينار كويتي (د.ك)</option>
+              <option value="$">دولار ($)</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label class="form-label">العنوان</label>
+            <input type="text" class="form-control" id="settAddress">
+          </div>
+        </div>
+        <button class="btn btn-primary mt-8" onclick="saveClinicSettings()">💾 حفظ</button>
+      </div>
+
+      <!-- Branches -->
+      <div class="card mt-16">
+        <div class="card-header">
+          <span class="card-title">🏢 الفروع</span>
+          <button class="btn btn-outline btn-sm" onclick="openModal('addBranchModal')">+ إضافة فرع</button>
+        </div>
+        <div id="branchesList"></div>
+      </div>
+    </div>
+
+    <!-- Account Tab -->
+    <div id="tab-account" class="tab-content hidden">
+      <div class="card">
+        <div class="card-header"><span class="card-title">👤 معلومات الحساب</span></div>
+        <div class="flex gap-16 mb-20" style="align-items:center;">
+          <div class="patient-avatar" style="width:72px;height:72px;font-size:1.5rem;" id="profileAvatar"></div>
+          <div>
+            <div class="font-bold" style="font-size:1.1rem;" id="profileName"></div>
+            <div class="text-muted" id="profileRole"></div>
+            <div class="text-sm mt-4" id="profileUsername"></div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">الاسم الكامل</label>
+            <input type="text" class="form-control" id="accName">
+          </div>
+          <div class="form-group">
+            <label class="form-label">البريد الإلكتروني</label>
+            <input type="email" class="form-control" id="accEmail" dir="ltr">
+          </div>
+          <div class="form-group">
+            <label class="form-label">رقم الهاتف</label>
+            <input type="tel" class="form-control" id="accPhone" dir="ltr">
+          </div>
+          <div class="form-group">
+            <label class="form-label">التخصص</label>
+            <input type="text" class="form-control" id="accSpecialty">
+          </div>
+        </div>
+        <button class="btn btn-primary mt-8" onclick="saveAccountSettings()">💾 حفظ التعديلات</button>
+      </div>
+
+      <div class="card mt-16">
+        <div class="card-header"><span class="card-title">🔒 تغيير كلمة المرور</span></div>
+        <div class="form-group">
+          <label class="form-label">كلمة المرور الحالية</label>
+          <input type="password" class="form-control" id="currPassword" dir="ltr">
+        </div>
+        <div class="form-group">
+          <label class="form-label">كلمة المرور الجديدة</label>
+          <input type="password" class="form-control" id="newPassword" dir="ltr">
+        </div>
+        <div class="form-group">
+          <label class="form-label">تأكيد كلمة المرور الجديدة</label>
+          <input type="password" class="form-control" id="confirmPassword" dir="ltr">
+        </div>
+        <button class="btn btn-primary mt-8" onclick="changePassword()">🔒 تغيير كلمة المرور</button>
+      </div>
+    </div>
+
+    <!-- Schedule Tab -->
+    <div id="tab-schedule" class="tab-content hidden">
+      <div class="card">
+        <div class="card-header"><span class="card-title">📅 إعدادات جدول العمل</span></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">بداية يوم العمل</label>
+            <input type="time" class="form-control" id="workStart">
+          </div>
+          <div class="form-group">
+            <label class="form-label">نهاية يوم العمل</label>
+            <input type="time" class="form-control" id="workEnd">
+          </div>
+          <div class="form-group">
+            <label class="form-label">مدة الجلسة الافتراضية (دقيقة)</label>
+            <select class="form-control" id="sessionDuration">
+              <option value="15">15 دقيقة</option>
+              <option value="30">30 دقيقة</option>
+              <option value="45">45 دقيقة</option>
+              <option value="60">ساعة</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group mt-8">
+          <label class="form-label">أيام العمل</label>
+          <div class="flex gap-8 flex-wrap mt-4" id="workDays"></div>
+        </div>
+        <button class="btn btn-primary mt-16" onclick="saveScheduleSettings()">💾 حفظ الإعدادات</button>
+      </div>
+    </div>
+
+    <!-- Data Tab -->
+    <div id="tab-data" class="tab-content hidden">
+      <div class="card mb-16">
+        <div class="card-header"><span class="card-title">💾 تصدير البيانات</span></div>
+        <p class="text-muted text-sm mb-16">قم بتصدير جميع بيانات النظام لحفظها أو نقلها</p>
+        <div class="flex gap-10 flex-wrap">
+          <button class="btn btn-outline" onclick="exportData()">⬇ تصدير كل البيانات (JSON)</button>
+          <button class="btn btn-outline" onclick="exportPatients()">👥 تصدير المرضى (CSV)</button>
+        </div>
+      </div>
+      <div class="card mb-16">
+        <div class="card-header"><span class="card-title">📂 استيراد البيانات</span></div>
+        <p class="text-muted text-sm mb-16">استيراد بيانات محفوظة سابقاً (JSON)</p>
+        <input type="file" id="importFile" accept=".json" class="form-control" style="margin-bottom:10px;">
+        <button class="btn btn-outline" onclick="importData()">⬆ استيراد</button>
+      </div>
+      <div class="card" style="border-color:var(--danger);">
+        <div class="card-header"><span class="card-title" style="color:var(--danger);">⚠ منطقة الخطر</span></div>
+        <p class="text-muted text-sm mb-16">هذه الإجراءات لا يمكن التراجع عنها</p>
+        <div class="flex gap-10">
+          <button class="btn btn-danger" onclick="resetAll()">🗑 مسح جميع البيانات</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Branch Modal -->
+<div class="modal-overlay" id="addBranchModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🏢 إضافة فرع جديد</span>
+      <button class="modal-close" onclick="closeModal('addBranchModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">اسم الفرع <span>*</span></label>
+      <input type="text" class="form-control" id="branchName">
+    </div>
+    <div class="form-group">
+      <label class="form-label">العنوان</label>
+      <input type="text" class="form-control" id="branchAddress">
+    </div>
+    <div class="form-group">
+      <label class="form-label">رقم الهاتف</label>
+      <input type="tel" class="form-control" id="branchPhone" dir="ltr">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveBranch()">حفظ الفرع</button>
+      <button class="btn btn-outline" onclick="closeModal('addBranchModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('settings.html');
+  if (!user) location.href = 'login.html';
+
+  const arabicDays = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+
+  function showTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.content-tab').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.remove('hidden');
+    btn.classList.add('active');
+  }
+
+  function loadClinicSettings() {
+    const s = DB.get('settings', {});
+    document.getElementById('settClinicName').value = s.clinicName || '';
+    document.getElementById('settDoctorName').value = s.doctorName || '';
+    document.getElementById('settPhone').value = s.phone || '';
+    document.getElementById('settAddress').value = s.address || '';
+    document.getElementById('settCurrency').value = s.currency || 'ج.م';
+  }
+
+  function loadAccountSettings() {
+    document.getElementById('profileAvatar').textContent = Utils.getInitials(user.name);
+    document.getElementById('profileName').textContent = user.name;
+    document.getElementById('profileRole').textContent = user.role === 'doctor' ? '🩺 طبيب' : '👤 موظف';
+    document.getElementById('profileUsername').textContent = 'اسم المستخدم: ' + user.username;
+    document.getElementById('accName').value = user.name || '';
+    document.getElementById('accEmail').value = user.email || '';
+    document.getElementById('accPhone').value = user.phone || '';
+    document.getElementById('accSpecialty').value = user.specialty || '';
+  }
+
+  function loadScheduleSettings() {
+    const s = DB.get('settings', {});
+    document.getElementById('workStart').value = s.workStart || '08:00';
+    document.getElementById('workEnd').value = s.workEnd || '20:00';
+    document.getElementById('sessionDuration').value = s.sessionDuration || 30;
+
+    const workDays = s.workDays || [0,1,2,3,4];
+    document.getElementById('workDays').innerHTML = arabicDays.map((d, i) => `
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.84rem;font-weight:600;transition:all 0.2s;" class="day-toggle" data-day="${i}">
+        <input type="checkbox" ${workDays.includes(i) ? 'checked' : ''} style="display:none;" onchange="toggleDay(${i}, this.parentElement)">
+        ${d}
+      </label>
+    `).join('');
+    document.querySelectorAll('.day-toggle').forEach(el => {
+      const cb = el.querySelector('input');
+      if (cb.checked) el.style.background = 'var(--navy)', el.style.color = 'white', el.style.borderColor = 'var(--navy)';
+    });
+  }
+
+  function toggleDay(day, label) {
+    const cb = label.querySelector('input');
+    if (cb.checked) { label.style.background = 'var(--navy)'; label.style.color = 'white'; label.style.borderColor = 'var(--navy)'; }
+    else { label.style.background = ''; label.style.color = ''; label.style.borderColor = 'var(--border)'; }
+  }
+
+  function renderBranches() {
+    const clinics = DB.get('clinics', []);
+    const el = document.getElementById('branchesList');
+    if (clinics.length === 0) { el.innerHTML = '<p class="text-muted text-sm">لا توجد فروع مضافة</p>'; return; }
+    el.innerHTML = clinics.map(c => `
+      <div class="flex-between" style="padding:12px 0;border-bottom:1px solid var(--border-light);">
+        <div>
+          <div class="font-bold">${Utils.escapeHtml(c.name)}</div>
+          <div class="text-muted text-sm">${Utils.escapeHtml(c.address || '')} ${c.phone ? '• '+c.phone : ''}</div>
+        </div>
+        <span class="badge ${c.active ? 'badge-success' : 'badge-gray'}">${c.active ? 'نشط' : 'غير نشط'}</span>
+      </div>`).join('');
+  }
+
+  function saveClinicSettings() {
+    const s = DB.get('settings', {});
+    DB.set('settings', {
+      ...s,
+      clinicName: document.getElementById('settClinicName').value,
+      doctorName: document.getElementById('settDoctorName').value,
+      phone: document.getElementById('settPhone').value,
+      address: document.getElementById('settAddress').value,
+      currency: document.getElementById('settCurrency').value
+    });
+    showToast('تم حفظ إعدادات العيادة');
+  }
+
+  function saveAccountSettings() {
+    const users = DB.get('users', []);
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx === -1) return;
+    users[idx] = { ...users[idx],
+      name: document.getElementById('accName').value,
+      email: document.getElementById('accEmail').value,
+      phone: document.getElementById('accPhone').value,
+      specialty: document.getElementById('accSpecialty').value
+    };
+    DB.set('users', users);
+    showToast('تم حفظ بيانات الحساب');
+    setTimeout(() => location.reload(), 1200);
+  }
+
+  function changePassword() {
+    const curr = document.getElementById('currPassword').value;
+    const newPw = document.getElementById('newPassword').value;
+    const conf = document.getElementById('confirmPassword').value;
+    const users = DB.get('users', []);
+    const u = users.find(u => u.id === user.id);
+    if (!u || u.password !== curr) { showToast('كلمة المرور الحالية غير صحيحة', 'error'); return; }
+    if (newPw.length < 6) { showToast('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل', 'error'); return; }
+    if (newPw !== conf) { showToast('كلمتا المرور غير متطابقتين', 'error'); return; }
+    const idx = users.findIndex(u => u.id === user.id);
+    users[idx].password = newPw;
+    DB.set('users', users);
+    showToast('تم تغيير كلمة المرور بنجاح');
+    ['currPassword','newPassword','confirmPassword'].forEach(id => document.getElementById(id).value = '');
+  }
+
+  function saveScheduleSettings() {
+    const s = DB.get('settings', {});
+    const workDays = [];
+    document.querySelectorAll('.day-toggle input:checked').forEach(cb => {
+      workDays.push(parseInt(cb.parentElement.dataset.day));
+    });
+    DB.set('settings', {
+      ...s,
+      workStart: document.getElementById('workStart').value,
+      workEnd: document.getElementById('workEnd').value,
+      sessionDuration: parseInt(document.getElementById('sessionDuration').value),
+      workDays
+    });
+    showToast('تم حفظ إعدادات جدول العمل');
+  }
+
+  function saveBranch() {
+    const name = document.getElementById('branchName').value.trim();
+    if (!name) { showToast('يرجى إدخال اسم الفرع', 'error'); return; }
+    const clinics = DB.get('clinics', []);
+    clinics.push({
+      id: Utils.generateId(clinics),
+      name, active: true,
+      address: document.getElementById('branchAddress').value,
+      phone: document.getElementById('branchPhone').value
+    });
+    DB.set('clinics', clinics);
+    closeModal('addBranchModal');
+    renderBranches();
+    showToast('تم إضافة الفرع');
+  }
+
+  function exportData() {
+    const data = {
+      users: DB.get('users',[]),
+      patients: DB.get('patients',[]),
+      appointments: DB.get('appointments',[]),
+      sessions: DB.get('sessions',[]),
+      clinics: DB.get('clinics',[]),
+      settings: DB.get('settings',{})
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'clinic_backup.json'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('تم تصدير البيانات');
+  }
+
+  function exportPatients() {
+    const patients = DB.get('patients', []);
+    const rows = [['الاسم','الهاتف','العمر','الجنس','فصيلة الدم','العنوان','ملاحظات','تاريخ التسجيل']];
+    patients.forEach(p => rows.push([p.name, p.phone, p.age||'', p.gender||'', p.bloodType||'', p.address||'', p.notes||'', p.createdAt||'']));
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'patients.csv'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('تم تصدير بيانات المرضى');
+  }
+
+  function importData() {
+    const file = document.getElementById('importFile').files[0];
+    if (!file) { showToast('يرجى اختيار ملف', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.patients) DB.set('patients', data.patients);
+        if (data.appointments) DB.set('appointments', data.appointments);
+        if (data.sessions) DB.set('sessions', data.sessions);
+        if (data.settings) DB.set('settings', data.settings);
+        showToast('تم استيراد البيانات بنجاح');
+        setTimeout(() => location.reload(), 1500);
+      } catch { showToast('ملف غير صالح', 'error'); }
+    };
+    reader.readAsText(file);
+  }
+
+  function resetAll() {
+    if (!confirm('تحذير: سيتم حذف جميع بيانات المرضى والمواعيد والجلسات. هل أنت متأكد؟')) return;
+    if (!confirm('هذا الإجراء لا يمكن التراجع عنه. هل تريد المتابعة؟')) return;
+    ['patients','appointments','sessions'].forEach(k => DB.remove(k));
+    showToast('تم مسح البيانات', 'warning');
+    setTimeout(() => location.reload(), 1500);
+  }
+
+  loadClinicSettings();
+  loadAccountSettings();
+  loadScheduleSettings();
+  renderBranches();
+</script>
+</body>
+</html>

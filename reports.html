@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>التقارير - نظام إدارة العيادات</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    .chart-bar-wrap { display:flex; flex-direction:column; gap:8px; }
+    .chart-bar-row { display:flex; align-items:center; gap:10px; }
+    .chart-bar-label { min-width:80px; font-size:0.78rem; font-weight:600; color:var(--text-secondary); text-align:right; }
+    .chart-bar-track { flex:1; height:24px; background:var(--surface-2); border-radius:50px; overflow:hidden; }
+    .chart-bar-fill { height:100%; border-radius:50px; background:linear-gradient(90deg,var(--accent-green),var(--accent-green-light)); transition:width 0.6s ease; display:flex; align-items:center; padding:0 8px; }
+    .chart-bar-val { font-size:0.72rem; font-weight:700; color:white; white-space:nowrap; }
+    .chart-bar-num { min-width:50px; font-size:0.78rem; font-weight:700; color:var(--text); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div id="topbarContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header flex-between">
+      <div>
+        <h1>📊 التقارير والإحصائيات</h1>
+        <p>تحليل شامل لأداء العيادة والمرضى</p>
+      </div>
+      <div class="flex gap-8">
+        <select class="form-control" id="reportPeriod" style="width:160px;" onchange="renderAll()">
+          <option value="7">آخر 7 أيام</option>
+          <option value="30" selected>آخر 30 يوم</option>
+          <option value="90">آخر 3 أشهر</option>
+          <option value="365">آخر سنة</option>
+          <option value="all">الكل</option>
+        </select>
+        <button class="btn btn-outline" onclick="printReport()">🖨 طباعة</button>
+      </div>
+    </div>
+
+    <!-- Main KPIs -->
+    <div class="stats-grid mb-20" id="kpiGrid"></div>
+
+    <div class="grid-2 mb-20">
+      <!-- Sessions by Month -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📈 الجلسات الشهرية</span>
+        </div>
+        <div class="chart-bar-wrap" id="sessionsByMonth"></div>
+      </div>
+
+      <!-- Revenue Chart -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">💰 الإيرادات الشهرية (ج.م)</span>
+        </div>
+        <div class="chart-bar-wrap" id="revenueByMonth"></div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-20">
+      <!-- Visit Types -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🏥 أنواع الزيارات</span>
+        </div>
+        <div id="visitTypes"></div>
+      </div>
+
+      <!-- Top Patients -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">👥 أكثر المرضى زيارةً</span>
+        </div>
+        <div id="topPatients"></div>
+      </div>
+    </div>
+
+    <!-- Detailed Table -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📋 تفاصيل الجلسات</span>
+        <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ تصدير CSV</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table" id="detailTable">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>المريض</th>
+              <th>التشخيص</th>
+              <th>الحالة</th>
+              <th>الرسوم</th>
+              <th>الدفع</th>
+            </tr>
+          </thead>
+          <tbody id="detailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast-container"></div>
+<script src="app.js"></script>
+<script src="layout.js"></script>
+<script src="sidebar.js"></script>
+<script>
+  document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
+  const user = buildSidebar('reports.html');
+  if (!user) location.href = 'login.html';
+
+  function getFilteredSessions() {
+    const days = document.getElementById('reportPeriod').value;
+    let sessions = Sessions.getAll(user.id);
+    if (days !== 'all') {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - parseInt(days));
+      sessions = sessions.filter(s => new Date(s.date) >= cutoff);
+    }
+    return sessions;
+  }
+
+  function renderKPIs() {
+    const sessions = getFilteredSessions();
+    const patients = Patients.getAll(user.id);
+    const appts = Appointments.getAll(user.id);
+    const revenue = sessions.filter(s => s.paid).reduce((sum, s) => sum + (s.fee || 0), 0);
+    const pending = sessions.filter(s => !s.paid).reduce((sum, s) => sum + (s.fee || 0), 0);
+    const avgFee = sessions.length ? (revenue / sessions.filter(s=>s.paid).length || 0) : 0;
+
+    document.getElementById('kpiGrid').innerHTML = `
+      <div class="stat-card"><div class="stat-icon navy">👥</div><div class="stat-body"><div class="stat-value">${patients.length}</div><div class="stat-label">إجمالي المرضى</div></div></div>
+      <div class="stat-card"><div class="stat-icon green">⚕</div><div class="stat-body"><div class="stat-value">${sessions.length}</div><div class="stat-label">الجلسات في الفترة</div></div></div>
+      <div class="stat-card"><div class="stat-icon gold">💰</div><div class="stat-body"><div class="stat-value">${revenue.toLocaleString()}</div><div class="stat-label">الإيرادات المحصلة (ج.م)</div></div></div>
+      <div class="stat-card"><div class="stat-icon coral">⏳</div><div class="stat-body"><div class="stat-value">${pending.toLocaleString()}</div><div class="stat-label">مبالغ معلقة (ج.م)</div></div></div>
+      <div class="stat-card"><div class="stat-icon info">📈</div><div class="stat-body"><div class="stat-value">${Math.round(avgFee).toLocaleString()}</div><div class="stat-label">متوسط رسوم الجلسة (ج.م)</div></div></div>
+      <div class="stat-card"><div class="stat-icon purple">📅</div><div class="stat-body"><div class="stat-value">${appts.length}</div><div class="stat-label">إجمالي المواعيد</div></div></div>
+    `;
+  }
+
+  function renderSessionsByMonth() {
+    const sessions = Sessions.getAll(user.id);
+    const monthNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const counts = {};
+    const revenue = {};
+    sessions.forEach(s => {
+      if (!s.date) return;
+      const d = new Date(s.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+      counts[key] = { label, val: (counts[key]?.val || 0) + 1 };
+      revenue[key] = { label, val: (revenue[key]?.val || 0) + (s.fee || 0) };
+    });
+
+    const keys = Object.keys(counts).sort().slice(-6);
+    const maxCount = Math.max(...keys.map(k => counts[k].val), 1);
+    const maxRev = Math.max(...keys.map(k => revenue[k]?.val || 0), 1);
+
+    document.getElementById('sessionsByMonth').innerHTML = keys.length === 0
+      ? '<p class="text-muted text-center" style="padding:20px;">لا توجد بيانات</p>'
+      : keys.map(k => {
+          const pct = Math.round((counts[k].val / maxCount) * 100);
+          return `<div class="chart-bar-row">
+            <div class="chart-bar-label">${counts[k].label}</div>
+            <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct}%"><span class="chart-bar-val">${counts[k].val}</span></div></div>
+            <div class="chart-bar-num">${counts[k].val} جلسة</div>
+          </div>`;
+        }).join('');
+
+    document.getElementById('revenueByMonth').innerHTML = keys.length === 0
+      ? '<p class="text-muted text-center" style="padding:20px;">لا توجد بيانات</p>'
+      : keys.map(k => {
+          const val = revenue[k]?.val || 0;
+          const pct = Math.round((val / maxRev) * 100);
+          return `<div class="chart-bar-row">
+            <div class="chart-bar-label">${revenue[k]?.label || counts[k].label}</div>
+            <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent-gold),#e8b84b)"><span class="chart-bar-val">${val.toLocaleString()}</span></div></div>
+            <div class="chart-bar-num">${val.toLocaleString()} ج.م</div>
+          </div>`;
+        }).join('');
+  }
+
+  function renderVisitTypes() {
+    const appts = Appointments.getAll(user.id);
+    const types = {};
+    appts.forEach(a => { types[a.type || 'كشف'] = (types[a.type || 'كشف'] || 0) + 1; });
+    const total = appts.length || 1;
+    const colors = ['var(--accent-green)','var(--navy)','var(--accent-gold)','var(--accent-coral)','var(--info)'];
+    const el = document.getElementById('visitTypes');
+    if (Object.keys(types).length === 0) { el.innerHTML = '<p class="text-muted text-center" style="padding:20px;">لا توجد بيانات</p>'; return; }
+    el.innerHTML = Object.entries(types).sort((a,b) => b[1]-a[1]).map(([type, count], i) => {
+      const pct = Math.round(count / total * 100);
+      return `<div class="flex-between mb-12">
+        <div class="flex gap-8" style="align-items:center;">
+          <span class="color-dot" style="background:${colors[i%colors.length]};width:10px;height:10px;border-radius:50%;"></span>
+          <span class="text-sm font-bold">${type}</span>
+        </div>
+        <div class="flex gap-10" style="align-items:center;">
+          <div style="width:100px;height:8px;background:var(--surface-2);border-radius:50px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:${colors[i%colors.length]};border-radius:50px;"></div>
+          </div>
+          <span class="text-sm text-muted">${count} (${pct}%)</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderTopPatients() {
+    const sessions = Sessions.getAll(user.id);
+    const patients = DB.get('patients', []);
+    const counts = {};
+    sessions.forEach(s => { counts[s.patientId] = (counts[s.patientId] || 0) + 1; });
+    const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,5);
+    const el = document.getElementById('topPatients');
+    if (sorted.length === 0) { el.innerHTML = '<p class="text-muted text-center" style="padding:20px;">لا توجد بيانات</p>'; return; }
+    el.innerHTML = sorted.map(([pid, count], i) => {
+      const p = patients.find(pt => pt.id === parseInt(pid));
+      return `<div class="flex-between mb-12 pb-12" style="border-bottom:1px solid var(--border-light);">
+        <div class="flex gap-10" style="align-items:center;">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;">${i+1}</div>
+          <div class="patient-avatar" style="width:32px;height:32px;font-size:0.75rem;">${Utils.getInitials(p ? p.name : '؟')}</div>
+          <span class="text-sm font-bold">${Utils.escapeHtml(p ? p.name : 'مريض محذوف')}</span>
+        </div>
+        <span class="badge badge-navy">${count} جلسة</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderDetailTable() {
+    const sessions = getFilteredSessions();
+    const patients = DB.get('patients', []);
+    sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const tbody = document.getElementById('detailTableBody');
+    if (sessions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:30px;">لا توجد جلسات في الفترة المحددة</td></tr>';
+      return;
+    }
+    tbody.innerHTML = sessions.map(s => {
+      const p = patients.find(pt => pt.id === s.patientId);
+      return `<tr>
+        <td>${Utils.formatDateShort(s.date)}</td>
+        <td>${Utils.escapeHtml(p ? p.name : '-')}</td>
+        <td>${Utils.escapeHtml(s.diagnosis || '-')}</td>
+        <td><span class="badge ${s.status==='completed'?'badge-success':'badge-warning'}">${s.status==='completed'?'مكتملة':'جارية'}</span></td>
+        <td class="font-bold">${(s.fee||0).toLocaleString()} ج.م</td>
+        <td><span class="badge ${s.paid?'badge-success':'badge-warning'}">${s.paid?'مدفوع':'معلق'}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function exportCSV() {
+    const sessions = getFilteredSessions();
+    const patients = DB.get('patients', []);
+    const rows = [['التاريخ','المريض','التشخيص','الحالة','الرسوم','الدفع']];
+    sessions.forEach(s => {
+      const p = patients.find(pt => pt.id === s.patientId);
+      rows.push([s.date, p ? p.name : '-', s.diagnosis || '-', s.status, s.fee || 0, s.paid ? 'مدفوع' : 'معلق']);
+    });
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'clinic_report.csv'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('تم تصدير التقرير');
+  }
+
+  function printReport() { window.print(); }
+
+  function renderAll() {
+    renderKPIs();
+    renderSessionsByMonth();
+    renderVisitTypes();
+    renderTopPatients();
+    renderDetailTable();
+  }
+
+  renderAll();
+</script>
+</body>
+</html>
