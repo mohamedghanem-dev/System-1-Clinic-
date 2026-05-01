@@ -113,7 +113,7 @@
 <script>
   document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
   const user = buildSidebar('dashboard.html');
-  if (!user) location.href = 'login.html';
+  if (!user) location.href = 'index.html';
 
   // Welcome message
   document.getElementById('welcomeMsg').textContent = `مرحباً، ${user.role === 'doctor' ? 'د.' : ''} ${user.name.split(' ')[1] || user.name} 👋`;

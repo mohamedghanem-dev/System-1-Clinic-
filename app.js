@@ -146,7 +146,7 @@ const Auth = {
   },
   logout() {
     DB.remove('session');
-    window.location.href = 'login.html';
+    window.location.href = 'index.html';
   },
   getSession() { return DB.get('session'); },
   getCurrentUser() {
@@ -157,7 +157,7 @@ const Auth = {
   },
   requireAuth() {
     const sess = DB.get('session');
-    if (!sess) { window.location.href = 'login.html'; return null; }
+    if (!sess) { window.location.href = 'index.html'; return null; }
     return Auth.getCurrentUser();
   }
 };

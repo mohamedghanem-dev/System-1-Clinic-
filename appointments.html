@@ -189,7 +189,7 @@
 <script>
   document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
   const user = buildSidebar('appointments.html');
-  if (!user) location.href = 'login.html';
+  if (!user) location.href = 'index.html';
 
   let currentView = 'day';
   let currentDate = Utils.todayStr();
