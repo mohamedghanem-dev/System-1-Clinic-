@@ -64,7 +64,7 @@
 <script>
   document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
   const user = buildSidebar('finance.html');
-  if (!user) location.href = 'login.html';
+  if (!user) location.href = 'index.html';
 
   function getFilteredSessions() {
     const days = document.getElementById('financePeriod').value;

@@ -2,7 +2,7 @@
   "name": "نظام إدارة العيادات المتكامل",
   "short_name": "عيادتي CRM",
   "description": "نظام متكامل لإدارة العيادات الطبية",
-  "start_url": "./login.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1a3a4a",

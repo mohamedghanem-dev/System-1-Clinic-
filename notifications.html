@@ -32,7 +32,7 @@
 <script>
   document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
   const user = buildSidebar('notifications.html');
-  if (!user) location.href = 'login.html';
+  if (!user) location.href = 'index.html';
 
   function renderNotifications() {
     const appts = Appointments.getToday(user.id);

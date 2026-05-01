@@ -1,7 +1,7 @@
 // Service Worker for Clinic CRM PWA
 const CACHE_NAME = 'clinic-crm-v1';
 const ASSETS = [
-  './login.html',
+  './index.html',
   './dashboard.html',
   './appointments.html',
   './patients.html',
@@ -45,7 +45,7 @@ self.addEventListener('fetch', event => {
         return response;
       }).catch(() => {
         if (event.request.destination === 'document') {
-          return caches.match('./login.html');
+          return caches.match('./index.html');
         }
       });
     })

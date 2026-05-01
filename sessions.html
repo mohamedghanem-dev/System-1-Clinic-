@@ -188,7 +188,7 @@
 <script>
   document.getElementById('topbarContainer').innerHTML = getTopbarHTML();
   const user = buildSidebar('sessions.html');
-  if (!user) location.href = 'login.html';
+  if (!user) location.href = 'index.html';
 
   let selectedSessionId = null;
   document.getElementById('sDate').value = Utils.todayStr();
